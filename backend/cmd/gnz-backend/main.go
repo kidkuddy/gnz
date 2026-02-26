@@ -19,6 +19,8 @@ import (
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/claude"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/files"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/scratchpad"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/terminal"
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
 	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
@@ -79,6 +81,20 @@ func main() {
 	// Register files module routes
 	srv.RegisterModuleRoutes(func(r chi.Router) {
 		files.Register(r, wsSvc)
+	})
+
+	// Register scratchpad module routes
+	scratchpadStore := scratchpad.NewStore(db)
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		scratchpad.Register(r, scratchpadStore)
+	})
+
+	// Initialize terminal module
+	termMgr := terminal.NewManager()
+	defer termMgr.Shutdown()
+
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		terminal.Register(r, termMgr)
 	})
 
 	// Finalize routes

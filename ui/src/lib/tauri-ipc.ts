@@ -58,8 +58,49 @@ export const claudeApi = {
   deleteSession: (ws: string, id: string) => apiDelete(`workspaces/${ws}/claude/sessions/${id}`),
   abort: (ws: string, id: string) =>
     apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/abort`, {}),
+  respond: (ws: string, id: string, toolUseId: string, result: string) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/respond`, {
+      tool_use_id: toolUseId,
+      result,
+    }),
   getSessionHistory: (ws: string, id: string) =>
     apiGet<HistoryMessage[]>(`workspaces/${ws}/claude/sessions/${id}/history`),
+};
+
+// Scratchpad API
+export interface ScratchpadData {
+  workspace_id: string;
+  content: string;
+  updated_at: string;
+}
+
+export const scratchpadApi = {
+  get: (ws: string) => apiGet<ScratchpadData>(`workspaces/${ws}/scratchpad`),
+  save: (ws: string, content: string) => apiPut<ScratchpadData>(`workspaces/${ws}/scratchpad`, { content }),
+};
+
+// Terminal API
+export interface TerminalSession {
+  id: string;
+  workspace_id: string;
+  name: string;
+  shell: string;
+  cwd: string;
+  cols: number;
+  rows: number;
+  status: string;
+  created_at: string;
+}
+
+export const terminalApi = {
+  list: (ws: string) => apiGet<TerminalSession[]>(`workspaces/${ws}/terminals`),
+  create: (ws: string, data: { name?: string; cwd?: string; cols?: number; rows?: number }) =>
+    apiPost<TerminalSession>(`workspaces/${ws}/terminals`, data),
+  delete: (ws: string, id: string) => apiDelete(`workspaces/${ws}/terminals/${id}`),
+  input: (ws: string, id: string, data: string) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/terminals/${id}/input`, { data }),
+  resize: (ws: string, id: string, cols: number, rows: number) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/terminals/${id}/resize`, { cols, rows }),
 };
 
 // Files API

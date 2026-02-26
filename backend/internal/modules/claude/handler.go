@@ -119,6 +119,44 @@ func (h *Handler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	server.Success(w, map[string]string{"deleted": id})
 }
 
+func (h *Handler) RespondToSession(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var body struct {
+		ToolUseID string `json:"tool_use_id"`
+		Result    string `json:"result"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		server.BadRequest(w, "invalid request body")
+		return
+	}
+	if body.ToolUseID == "" {
+		server.BadRequest(w, "tool_use_id is required")
+		return
+	}
+
+	// Build the stream-json stdin message
+	stdinMsg := map[string]string{
+		"type":        "tool_result",
+		"tool_use_id": body.ToolUseID,
+		"content":     body.Result,
+	}
+	payload, err := json.Marshal(stdinMsg)
+	if err != nil {
+		server.InternalError(w, "failed to marshal response")
+		return
+	}
+
+	log.Printf("[respond:%s] sending tool_result for tool_use_id=%s", id[:8], body.ToolUseID)
+
+	if err := h.manager.Respond(id, payload); err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	server.Success(w, map[string]string{"status": "sent"})
+}
+
 func (h *Handler) Abort(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 

@@ -20,5 +20,6 @@ func Register(r chi.Router, svc *Service, manager *Manager) {
 		// Uses GET so EventSource can connect directly
 		r.Get("/sessions/{id}/chat", h.Chat)
 		r.Post("/sessions/{id}/abort", h.Abort)
+		r.Post("/sessions/{id}/respond", h.RespondToSession)
 	})
 }

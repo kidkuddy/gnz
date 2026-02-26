@@ -3,13 +3,29 @@ import { claudeApi, getBackendPort, type ClaudeSession, type HistoryMessage, typ
 
 export type MessageRole = 'user' | 'assistant';
 
+export interface AskUserOption {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserQuestion {
+  question: string;
+  header?: string;
+  options?: AskUserOption[];
+  multiSelect?: boolean;
+}
+
 export interface MessageContent {
-  type: 'text' | 'tool_use' | 'tool_result';
+  type: 'text' | 'tool_use' | 'tool_result' | 'ask_user';
   text?: string;
   tool?: string;
   toolUseId?: string;
   input?: Record<string, unknown>;
   content?: string;
+  // ask_user fields
+  questions?: AskUserQuestion[];
+  answered?: boolean;
+  selectedAnswer?: string;
 }
 
 export interface ChatMessage {
@@ -48,6 +64,7 @@ interface SessionStore {
   // Messaging
   sendMessage: (workspaceId: string, sessionId: string, text: string) => Promise<void>;
   abortSession: (workspaceId: string, sessionId: string) => Promise<void>;
+  respondToQuestion: (workspaceId: string, sessionId: string, toolUseId: string, result: string) => Promise<void>;
 
   // Internal helpers
   getMessages: (sessionId: string) => ChatMessage[];
@@ -329,6 +346,44 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
   },
 
+  respondToQuestion: async (workspaceId, sessionId, toolUseId, result) => {
+    try {
+      await claudeApi.respond(workspaceId, sessionId, toolUseId, result);
+    } catch (err) {
+      console.error('Failed to respond to question:', err);
+      return;
+    }
+
+    // Mark the ask_user block as answered
+    set((s) => {
+      const sessionMsgs = s.sessionMessages[sessionId];
+      if (!sessionMsgs) return {};
+
+      const messages = sessionMsgs.messages.map((msg) => {
+        const hasAskUser = msg.content.some(
+          (c) => c.type === 'ask_user' && c.toolUseId === toolUseId && !c.answered
+        );
+        if (!hasAskUser) return msg;
+
+        return {
+          ...msg,
+          content: msg.content.map((c) =>
+            c.type === 'ask_user' && c.toolUseId === toolUseId
+              ? { ...c, answered: true, selectedAnswer: result }
+              : c
+          ),
+        };
+      });
+
+      return {
+        sessionMessages: {
+          ...s.sessionMessages,
+          [sessionId]: { ...sessionMsgs, messages },
+        },
+      };
+    });
+  },
+
   getMessages: (sessionId) => {
     return get().sessionMessages[sessionId]?.messages || [];
   },
@@ -345,9 +400,24 @@ function parseContentBlock(block: Record<string, unknown>): MessageContent | nul
     return { type: 'text', text: block.text as string };
   }
   if (blockType === 'tool_use') {
+    const toolName = block.name as string;
+
+    // Intercept AskUserQuestion tool_use blocks as ask_user content type
+    if (toolName === 'AskUserQuestion') {
+      const input = block.input as Record<string, unknown> | undefined;
+      const questions = input?.questions as AskUserQuestion[] | undefined;
+      return {
+        type: 'ask_user',
+        toolUseId: block.id as string,
+        tool: toolName,
+        questions: questions || [],
+        answered: false,
+      };
+    }
+
     return {
       type: 'tool_use',
-      tool: block.name as string,
+      tool: toolName,
       toolUseId: block.id as string,
       input: block.input as Record<string, unknown>,
     };

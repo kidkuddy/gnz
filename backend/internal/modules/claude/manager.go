@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 type RunningProcess struct {
 	cmd    *exec.Cmd
 	cancel context.CancelFunc
+	stdin  io.WriteCloser
 	events chan string // raw JSON lines from stdout
 	done   chan struct{}
 }
@@ -67,6 +69,7 @@ func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error)
 	args := []string{
 		"-p", text,
 		"--output-format", "stream-json",
+		"--input-format", "stream-json",
 		"--verbose",
 		"--model", sess.Model,
 		"--permission-mode", permMode,
@@ -98,12 +101,21 @@ func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error)
 		return nil, fmt.Errorf("creating stderr pipe: %w", err)
 	}
 
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		cancel()
+		m.mu.Unlock()
+		log.Printf("[claude:%s] ERROR: creating stdin pipe: %v", sess.ID[:8], err)
+		return nil, fmt.Errorf("creating stdin pipe: %w", err)
+	}
+
 	events := make(chan string, 256)
 	done := make(chan struct{})
 
 	proc := &RunningProcess{
 		cmd:    cmd,
 		cancel: cancel,
+		stdin:  stdinPipe,
 		events: events,
 		done:   done,
 	}
@@ -152,6 +164,9 @@ func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error)
 			log.Printf("[claude:%s] stdout scanner error: %v", sess.ID[:8], err)
 		}
 
+		// Close stdin pipe
+		stdinPipe.Close()
+
 		// Wait for process to finish
 		exitErr := cmd.Wait()
 		if exitErr != nil {
@@ -166,6 +181,18 @@ func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error)
 	}()
 
 	return events, nil
+}
+
+// Respond writes a JSON payload to the stdin of a running session's process.
+func (m *Manager) Respond(sessionID string, payload []byte) error {
+	m.mu.RLock()
+	proc, exists := m.processes[sessionID]
+	m.mu.RUnlock()
+	if !exists {
+		return fmt.Errorf("no running process for session %s", sessionID)
+	}
+	_, err := proc.stdin.Write(append(payload, '\n'))
+	return err
 }
 
 // Abort kills the running process for a session.

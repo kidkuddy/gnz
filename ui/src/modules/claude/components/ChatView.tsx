@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { useSessionStore, type ChatMessage, type MessageContent } from '../stores/session-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { SessionInput } from './SessionInput';
+import { AskUserPrompt } from './AskUserPrompt';
 import { ChevronDown, ChevronRight, Wrench, User, Bot } from 'lucide-react';
 
 interface ChatViewProps {
@@ -49,7 +50,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
         {messages.length === 0 ? (
           <div style={emptyStyle}>Start a conversation</div>
         ) : (
-          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
+          messages.map((msg) => <MessageBubble key={msg.id} message={msg} sessionId={sessionId} />)
         )}
         {streaming && (
           <div style={streamingIndicatorStyle}>
@@ -149,7 +150,7 @@ function groupToolBlocks(content: MessageContent[]): GroupedBlock[] {
 
 // --- Message Bubble ---
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, sessionId }: { message: ChatMessage; sessionId: string }) {
   const isUser = message.role === 'user';
 
   const bubbleStyle: React.CSSProperties = {
@@ -196,16 +197,34 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               />
             );
           }
-          return <ContentBlock key={i} block={group.block} />;
+          return <ContentBlock key={i} block={group.block} sessionId={sessionId} />;
         })}
       </div>
     </div>
   );
 }
 
-function ContentBlock({ block }: { block: MessageContent }) {
+function ContentBlock({ block, sessionId }: { block: MessageContent; sessionId: string }) {
+  const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace);
+  const respondToQuestion = useSessionStore((s) => s.respondToQuestion);
+
   if (block.type === 'text' && block.text) {
     return <TextBlock text={block.text} />;
+  }
+  if (block.type === 'ask_user') {
+    return (
+      <AskUserPrompt
+        toolUseId={block.toolUseId || ''}
+        questions={block.questions || []}
+        answered={block.answered || false}
+        selectedAnswer={block.selectedAnswer}
+        onRespond={(toolUseId, result) => {
+          if (activeWorkspace) {
+            respondToQuestion(activeWorkspace.id, sessionId, toolUseId, result);
+          }
+        }}
+      />
+    );
   }
   if (block.type === 'tool_use') {
     return <ToolUseBlock tool={block.tool || 'unknown'} input={block.input} />;
