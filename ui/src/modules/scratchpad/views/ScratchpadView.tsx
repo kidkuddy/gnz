@@ -5,13 +5,14 @@ import { useScratchpadStore } from '../stores/scratchpad-store';
 export function ScratchpadView() {
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace);
   const content = useScratchpadStore((s) => s.content);
+  const savedContent = useScratchpadStore((s) => s.savedContent);
   const loaded = useScratchpadStore((s) => s.loaded);
   const saving = useScratchpadStore((s) => s.saving);
   const load = useScratchpadStore((s) => s.load);
   const save = useScratchpadStore((s) => s.save);
   const setContent = useScratchpadStore((s) => s.setContent);
 
-  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirty = content !== savedContent;
 
   React.useEffect(() => {
     if (activeWorkspace) {
@@ -22,32 +23,23 @@ export function ScratchpadView() {
     };
   }, [activeWorkspace, load]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setContent(value);
-
-    // Debounced auto-save
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    if (activeWorkspace) {
-      saveTimeoutRef.current = setTimeout(() => {
-        save(activeWorkspace.id, value);
-      }, 500);
-    }
-  };
-
-  // Save on unmount if there's a pending timeout
+  // Cmd+S to save
   React.useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        const ws = useWorkspaceStore.getState().activeWorkspace;
-        const pad = useScratchpadStore.getState();
-        if (ws) {
-          scratchpadApi_save(ws.id, pad.content);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (activeWorkspace) {
+          save(activeWorkspace.id);
         }
       }
     };
-  }, []);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeWorkspace, save]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+  };
 
   if (!activeWorkspace) {
     return (
@@ -68,23 +60,23 @@ export function ScratchpadView() {
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <span style={titleStyle}>Scratchpad</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={titleStyle}>Scratchpad</span>
+          {dirty && <span style={dirtyDotStyle} title="Unsaved changes" />}
+        </div>
         {saving && <span style={savingStyle}>Saving...</span>}
+        {!saving && !dirty && <span style={savedStyle}>Saved</span>}
       </div>
       <textarea
         value={content}
         onChange={handleChange}
-        placeholder="Notes, todos, anything..."
+        placeholder="Notes, todos, anything... (Cmd+S to save)"
         style={textareaStyle}
         spellCheck={false}
       />
     </div>
   );
 }
-
-// Direct import for unmount save
-import { scratchpadApi } from '../../../lib/tauri-ipc';
-const scratchpadApi_save = scratchpadApi.save;
 
 const containerStyle: React.CSSProperties = {
   display: 'flex',
@@ -110,7 +102,21 @@ const titleStyle: React.CSSProperties = {
   color: 'var(--text-tertiary)',
 };
 
+const dirtyDotStyle: React.CSSProperties = {
+  width: '6px',
+  height: '6px',
+  borderRadius: '50%',
+  background: 'var(--accent, #2dd4bf)',
+  flexShrink: 0,
+};
+
 const savingStyle: React.CSSProperties = {
+  fontSize: '10px',
+  color: 'var(--text-disabled)',
+  fontFamily: 'var(--font-mono)',
+};
+
+const savedStyle: React.CSSProperties = {
   fontSize: '10px',
   color: 'var(--text-disabled)',
   fontFamily: 'var(--font-mono)',

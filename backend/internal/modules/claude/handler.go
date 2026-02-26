@@ -135,11 +135,33 @@ func (h *Handler) RespondToSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build the stream-json stdin message
-	stdinMsg := map[string]string{
-		"type":        "tool_result",
-		"tool_use_id": body.ToolUseID,
-		"content":     body.Result,
+	// Look up session to get claude_session_id for the envelope
+	sess, err := h.svc.GetByID(id)
+	if err != nil {
+		server.InternalError(w, err.Error())
+		return
+	}
+	if sess == nil {
+		server.NotFound(w, "session not found")
+		return
+	}
+
+	// Build the full user message envelope for stream-json stdin
+	stdinMsg := map[string]interface{}{
+		"type": "user",
+		"message": map[string]interface{}{
+			"role": "user",
+			"content": []map[string]interface{}{
+				{
+					"type":        "tool_result",
+					"tool_use_id": body.ToolUseID,
+					"content":     body.Result,
+					"is_error":    false,
+				},
+			},
+		},
+		"session_id":         sess.ClaudeSessionID,
+		"parent_tool_use_id": nil,
 	}
 	payload, err := json.Marshal(stdinMsg)
 	if err != nil {
@@ -147,7 +169,7 @@ func (h *Handler) RespondToSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[respond:%s] sending tool_result for tool_use_id=%s", id[:8], body.ToolUseID)
+	log.Printf("[respond:%s] sending user envelope for tool_use_id=%s session=%s", id[:8], body.ToolUseID, sess.ClaudeSessionID)
 
 	if err := h.manager.Respond(id, payload); err != nil {
 		server.BadRequest(w, err.Error())

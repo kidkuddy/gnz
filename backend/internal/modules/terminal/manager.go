@@ -69,7 +69,7 @@ func (m *Manager) Create(workspaceID, name, cwd string, cols, rows uint16) (*Ter
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cmd := exec.CommandContext(ctx, shell)
+	cmd := exec.CommandContext(ctx, shell, "-l")
 	cmd.Dir = cwd
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 

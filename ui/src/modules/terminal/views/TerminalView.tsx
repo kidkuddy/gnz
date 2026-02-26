@@ -38,6 +38,38 @@ export function TerminalView() {
   return <TerminalInstance key={sessionId} sessionId={sessionId} workspaceId={activeWorkspace.id} />;
 }
 
+// Serialized input queue — ensures keystrokes arrive in order
+class InputQueue {
+  private queue: string[] = [];
+  private sending = false;
+  private ws: string;
+  private sid: string;
+
+  constructor(workspaceId: string, sessionId: string) {
+    this.ws = workspaceId;
+    this.sid = sessionId;
+  }
+
+  push(base64Data: string) {
+    this.queue.push(base64Data);
+    this.flush();
+  }
+
+  private async flush() {
+    if (this.sending) return;
+    this.sending = true;
+    while (this.queue.length > 0) {
+      const data = this.queue.shift()!;
+      try {
+        await terminalApi.input(this.ws, this.sid, data);
+      } catch {
+        // Terminal may be dead
+      }
+    }
+    this.sending = false;
+  }
+}
+
 function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; workspaceId: string }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const termRef = React.useRef<Terminal | null>(null);
@@ -50,7 +82,7 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
-      fontFamily: 'var(--font-mono), JetBrains Mono, Menlo, Monaco, monospace',
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
       theme: {
         background: '#0a0a0b',
         foreground: '#e4e4e7',
@@ -90,10 +122,13 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
       sendResize(workspaceId, sessionId, term.cols, term.rows);
     });
 
-    // Handle user input → POST to backend
+    // Serialized input queue to prevent out-of-order keystrokes
+    const inputQueue = new InputQueue(workspaceId, sessionId);
+
     const inputDisposable = term.onData((data) => {
-      const encoded = btoa(data);
-      terminalApi.input(workspaceId, sessionId, encoded).catch(() => {});
+      const bytes = new TextEncoder().encode(data);
+      const encoded = uint8ToBase64(bytes);
+      inputQueue.push(encoded);
     });
 
     // Connect SSE for output
@@ -107,8 +142,8 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
         try {
           const parsed = JSON.parse(event.data);
           if (parsed.output) {
-            const decoded = atob(parsed.output);
-            term.write(decoded);
+            const bytes = base64ToUint8(parsed.output);
+            term.write(bytes);
           }
         } catch {
           // Skip unparseable
@@ -121,7 +156,7 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
       });
 
       es.addEventListener('error', () => {
-        // EventSource reconnects automatically; only close if terminal is gone
+        // EventSource reconnects automatically
       });
     });
 
@@ -148,6 +183,23 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
   }, [sessionId, workspaceId]);
 
   return <div ref={containerRef} style={termContainerStyle} />;
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
 let resizeTimeout: ReturnType<typeof setTimeout> | null = null;

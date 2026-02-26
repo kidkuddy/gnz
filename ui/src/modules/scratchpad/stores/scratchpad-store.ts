@@ -3,35 +3,40 @@ import { scratchpadApi } from '../../../lib/tauri-ipc';
 
 interface ScratchpadStore {
   content: string;
+  savedContent: string;
   loaded: boolean;
   saving: boolean;
 
   load: (workspaceId: string) => Promise<void>;
-  save: (workspaceId: string, content: string) => Promise<void>;
+  save: (workspaceId: string) => Promise<void>;
   setContent: (content: string) => void;
+  isDirty: () => boolean;
   reset: () => void;
 }
 
-export const useScratchpadStore = create<ScratchpadStore>((set) => ({
+export const useScratchpadStore = create<ScratchpadStore>((set, get) => ({
   content: '',
+  savedContent: '',
   loaded: false,
   saving: false,
 
   load: async (workspaceId) => {
     try {
       const pad = await scratchpadApi.get(workspaceId);
-      set({ content: pad.content, loaded: true });
+      set({ content: pad.content, savedContent: pad.content, loaded: true });
     } catch {
-      set({ content: '', loaded: true });
+      set({ content: '', savedContent: '', loaded: true });
     }
   },
 
-  save: async (workspaceId, content) => {
+  save: async (workspaceId) => {
+    const { content } = get();
     set({ saving: true });
     try {
       await scratchpadApi.save(workspaceId, content);
+      set({ savedContent: content });
     } catch {
-      // Silent fail — content is still in local state
+      // Silent fail
     } finally {
       set({ saving: false });
     }
@@ -41,7 +46,12 @@ export const useScratchpadStore = create<ScratchpadStore>((set) => ({
     set({ content });
   },
 
+  isDirty: () => {
+    const { content, savedContent } = get();
+    return content !== savedContent;
+  },
+
   reset: () => {
-    set({ content: '', loaded: false, saving: false });
+    set({ content: '', savedContent: '', loaded: false, saving: false });
   },
 }));
