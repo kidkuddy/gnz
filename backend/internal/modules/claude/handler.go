@@ -179,6 +179,174 @@ func (h *Handler) RespondToSession(w http.ResponseWriter, r *http.Request) {
 	server.Success(w, map[string]string{"status": "sent"})
 }
 
+// StreamSession opens a persistent SSE stream for a session (alive mode).
+// It spawns the claude process without an initial prompt — the process waits for stdin input.
+func (h *Handler) StreamSession(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	log.Printf("[stream:%s] received stream request", id[:8])
+
+	sess, err := h.svc.GetByID(id)
+	if err != nil {
+		log.Printf("[stream:%s] ERROR: GetByID failed: %v", id[:8], err)
+		server.InternalError(w, err.Error())
+		return
+	}
+	if sess == nil {
+		log.Printf("[stream:%s] ERROR: session not found", id[:8])
+		server.NotFound(w, "session not found")
+		return
+	}
+
+	log.Printf("[stream:%s] session found: model=%s, cwd=%s, claudeSessionID=%s", id[:8], sess.Model, sess.WorkingDirectory, sess.ClaudeSessionID)
+
+	// Start the process in alive mode (no initial prompt)
+	events, err := h.manager.Start(sess)
+	if err != nil {
+		log.Printf("[stream:%s] ERROR: Start failed: %v", id[:8], err)
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	log.Printf("[stream:%s] process spawned (alive mode), starting SSE stream", id[:8])
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		server.InternalError(w, "streaming not supported")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	ctx := r.Context()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("[stream:%s] client disconnected, aborting process", id[:8])
+			_ = h.manager.Abort(id)
+			return
+		case line, ok := <-events:
+			if !ok {
+				fmt.Fprintf(w, "event: done\ndata: {\"type\":\"done\"}\n\n")
+				flusher.Flush()
+				return
+			}
+			fmt.Fprintf(w, "event: message\ndata: %s\n\n", line)
+			flusher.Flush()
+
+			h.tryExtractSessionID(id, line)
+		}
+	}
+}
+
+// SendToSession sends a user text message to a running session's process via stdin.
+func (h *Handler) SendToSession(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		server.BadRequest(w, "invalid request body")
+		return
+	}
+	if body.Text == "" {
+		server.BadRequest(w, "text is required")
+		return
+	}
+
+	sess, err := h.svc.GetByID(id)
+	if err != nil {
+		server.InternalError(w, err.Error())
+		return
+	}
+	if sess == nil {
+		server.NotFound(w, "session not found")
+		return
+	}
+
+	log.Printf("[send:%s] sending text to running process (%d chars)", id[:8], len(body.Text))
+
+	if err := h.manager.SendText(id, body.Text, sess.ClaudeSessionID); err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	server.Success(w, map[string]string{"status": "sent"})
+}
+
+// RespondPermission handles a user's allow/deny decision for a tool permission request.
+// It builds the control_response envelope that the CLI expects on stdin.
+func (h *Handler) RespondPermission(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var body struct {
+		RequestID    string         `json:"request_id"`
+		Behavior     string         `json:"behavior"` // "allow" or "deny"
+		UpdatedInput map[string]any `json:"updated_input,omitempty"`
+		Message      string         `json:"message,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		server.BadRequest(w, "invalid request body")
+		return
+	}
+	if body.RequestID == "" {
+		server.BadRequest(w, "request_id is required")
+		return
+	}
+	if body.Behavior != "allow" && body.Behavior != "deny" {
+		server.BadRequest(w, "behavior must be 'allow' or 'deny'")
+		return
+	}
+
+	// Build the control_response envelope
+	var innerResponse map[string]any
+	if body.Behavior == "allow" {
+		innerResponse = map[string]any{
+			"behavior":     "allow",
+			"updatedInput": body.UpdatedInput,
+		}
+	} else {
+		msg := body.Message
+		if msg == "" {
+			msg = "User denied this action"
+		}
+		innerResponse = map[string]any{
+			"behavior": "deny",
+			"message":  msg,
+		}
+	}
+
+	controlResponse := map[string]any{
+		"type": "control_response",
+		"response": map[string]any{
+			"subtype":    "success",
+			"request_id": body.RequestID,
+			"response":   innerResponse,
+		},
+	}
+
+	payload, err := json.Marshal(controlResponse)
+	if err != nil {
+		server.InternalError(w, "failed to marshal control response")
+		return
+	}
+
+	log.Printf("[permission:%s] sending %s for request_id=%s", id[:8], body.Behavior, body.RequestID)
+
+	if err := h.manager.Respond(id, payload); err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	server.Success(w, map[string]string{"status": "sent"})
+}
+
 func (h *Handler) Abort(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 

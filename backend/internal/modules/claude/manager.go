@@ -3,6 +3,7 @@ package claude
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -34,9 +35,41 @@ func NewManager(svc *Service) *Manager {
 	}
 }
 
-// SendMessage spawns a claude subprocess for the given session and streams output.
-// If a process is already running for this session, it returns an error.
+// Start spawns a claude process without an initial prompt (alive mode).
+// The process stays running and waits for stdin input.
+func (m *Manager) Start(sess *Session) (<-chan string, error) {
+	return m.spawnProcess(sess, "")
+}
+
+// SendMessage spawns a claude process with an initial prompt (fire-and-go mode).
+// The process runs until the prompt is fully answered, then exits.
 func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error) {
+	return m.spawnProcess(sess, text)
+}
+
+// SendText writes a user text message to the stdin of a running session's process.
+func (m *Manager) SendText(sessionID, text, claudeSessionID string) error {
+	msg := map[string]any{
+		"type": "user",
+		"message": map[string]any{
+			"role": "user",
+			"content": []map[string]any{
+				{"type": "text", "text": text},
+			},
+		},
+		"session_id":         claudeSessionID,
+		"parent_tool_use_id": nil,
+	}
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("marshalling stdin message: %w", err)
+	}
+	log.Printf("[claude:%s] sending text via stdin (%d bytes)", sessionID[:8], len(payload))
+	return m.Respond(sessionID, payload)
+}
+
+// spawnProcess is the shared implementation for Start and SendMessage.
+func (m *Manager) spawnProcess(sess *Session, text string) (<-chan string, error) {
 	m.mu.Lock()
 	if _, exists := m.processes[sess.ID]; exists {
 		m.mu.Unlock()
@@ -67,12 +100,21 @@ func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error)
 	}
 
 	args := []string{
-		"-p", text,
 		"--output-format", "stream-json",
 		"--input-format", "stream-json",
 		"--verbose",
 		"--model", sess.Model,
 		"--permission-mode", permMode,
+	}
+
+	// For non-bypass modes, use stdio-based permission prompts so the UI can handle them
+	if permMode != "bypassPermissions" {
+		args = append(args, "--permission-prompt-tool", "stdio")
+	}
+
+	// Only add -p if there's initial text (fire-and-go mode)
+	if text != "" {
+		args = append(args, "-p", text)
 	}
 
 	// Resume existing claude session if we have one

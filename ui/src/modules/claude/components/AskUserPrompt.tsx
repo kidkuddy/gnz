@@ -38,9 +38,7 @@ export function AskUserPrompt({ toolUseId, questions, answered, selectedAnswer, 
   };
 
   const submitAnswer = (_questionIdx: number, answer: string) => {
-    // Build AskUserQuestion response payload
     const answers: Record<string, string> = {};
-    // For single-question (most common), map the answer directly
     if (questions.length === 1) {
       answers[questions[0].question] = answer;
     }
@@ -84,10 +82,7 @@ export function AskUserPrompt({ toolUseId, questions, answered, selectedAnswer, 
                 placeholder="Type your answer..."
                 style={otherInputStyle}
               />
-              <button
-                style={otherSendStyle}
-                onClick={() => handleOtherSubmit(qIdx)}
-              >
+              <button style={otherSendStyle} onClick={() => handleOtherSubmit(qIdx)}>
                 Send
               </button>
             </div>
@@ -101,7 +96,7 @@ export function AskUserPrompt({ toolUseId, questions, answered, selectedAnswer, 
 const containerStyle: React.CSSProperties = {
   margin: '6px 0',
   padding: '8px 10px',
-  background: 'rgba(45, 212, 191, 0.04)',
+  background: 'rgba(255, 255, 255, 0.02)',
   borderRadius: 'var(--radius-sm)',
 };
 
@@ -126,8 +121,8 @@ const chipsRowStyle: React.CSSProperties = {
 const chipStyle: React.CSSProperties = {
   padding: '3px 10px',
   background: 'var(--bg-elevated)',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: '12px',
+  border: '1px solid var(--border-default)',
+  borderRadius: '10px',
   fontSize: '11.5px',
   fontFamily: 'var(--font-mono)',
   color: 'var(--text-secondary)',
@@ -151,7 +146,7 @@ const otherInputStyle: React.CSSProperties = {
   flex: 1,
   padding: '3px 8px',
   background: 'var(--bg-base)',
-  border: '1px solid var(--border-subtle)',
+  border: '1px solid var(--border-default)',
   borderRadius: 'var(--radius-sm)',
   fontSize: '12px',
   fontFamily: 'var(--font-mono)',
@@ -161,12 +156,12 @@ const otherInputStyle: React.CSSProperties = {
 
 const otherSendStyle: React.CSSProperties = {
   padding: '3px 10px',
-  background: 'var(--accent-teal, #2dd4bf)',
+  background: 'var(--text-primary)',
   border: 'none',
   borderRadius: 'var(--radius-sm)',
   fontSize: '11.5px',
   fontWeight: 500,
-  color: 'var(--bg-base, #0a0a0b)',
+  color: '#000',
   cursor: 'pointer',
 };
 

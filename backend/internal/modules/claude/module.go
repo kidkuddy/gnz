@@ -17,9 +17,15 @@ func Register(r chi.Router, svc *Service, manager *Manager) {
 		r.Get("/sessions/{id}/history", h.GetSessionHistory)
 
 		// Combined send+stream: GET /sessions/{id}/chat?text=...
-		// Uses GET so EventSource can connect directly
+		// Uses GET so EventSource can connect directly (fire-and-go mode)
 		r.Get("/sessions/{id}/chat", h.Chat)
+
+		// Alive mode: persistent SSE stream + separate message sending
+		r.Get("/sessions/{id}/stream", h.StreamSession)
+		r.Post("/sessions/{id}/send", h.SendToSession)
+
 		r.Post("/sessions/{id}/abort", h.Abort)
 		r.Post("/sessions/{id}/respond", h.RespondToSession)
+		r.Post("/sessions/{id}/permission", h.RespondPermission)
 	})
 }

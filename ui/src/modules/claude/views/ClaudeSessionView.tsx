@@ -12,8 +12,7 @@ export function ClaudeSessionView() {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const sessionId = activeTab?.data?.sessionId as string | undefined;
 
-  // Load sessions list when this view first mounts (ensures sessions are loaded
-  // even if the user opens a claude tab without visiting the sidebar panel first)
+  // Load sessions list when this view first mounts
   React.useEffect(() => {
     if (activeWorkspace) {
       useSessionStore.getState().loadSessions(activeWorkspace.id).catch(() => {});
@@ -34,12 +33,20 @@ export function ClaudeSessionView() {
     }
   }, [sessionId, activeWorkspace]);
 
+  // Auto-connect alive mode when tab opens
+  React.useEffect(() => {
+    if (!sessionId || !activeWorkspace) return;
+    const store = useSessionStore.getState();
+    if (store.isAlive(sessionId) && !store.isConnected(sessionId)) {
+      store.connectSession(activeWorkspace.id, sessionId).catch(() => {});
+    }
+  }, [sessionId, activeWorkspace]);
+
   // Sync tab title renames to the backend session name
   const tabTitle = activeTab?.title;
   const prevTitleRef = React.useRef<string | undefined>(undefined);
   React.useEffect(() => {
     if (!sessionId || !activeWorkspace || !tabTitle) return;
-    // Only sync after the ref has been initialized (skip the first render)
     if (prevTitleRef.current !== undefined && prevTitleRef.current !== tabTitle) {
       useSessionStore.getState().renameSession(activeWorkspace.id, sessionId, tabTitle).catch(() => {});
     }

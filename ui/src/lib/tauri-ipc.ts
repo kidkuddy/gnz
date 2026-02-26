@@ -65,6 +65,15 @@ export const claudeApi = {
     }),
   getSessionHistory: (ws: string, id: string) =>
     apiGet<HistoryMessage[]>(`workspaces/${ws}/claude/sessions/${id}/history`),
+  sendToSession: (ws: string, id: string, text: string) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/send`, { text }),
+  respondPermission: (ws: string, id: string, requestId: string, behavior: 'allow' | 'deny', updatedInput?: Record<string, unknown>, message?: string) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/permission`, {
+      request_id: requestId,
+      behavior,
+      updated_input: updatedInput,
+      message,
+    }),
 };
 
 // Scratchpad API

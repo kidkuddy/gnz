@@ -48,7 +48,7 @@ func (s *Service) Create(workspaceID, name, workingDir, model, permissionMode st
 		model = "claude-sonnet-4-6"
 	}
 	if permissionMode == "" || !ValidPermissionModes[permissionMode] {
-		permissionMode = "acceptEdits"
+		permissionMode = "bypassPermissions"
 	}
 
 	now := time.Now().UTC()
