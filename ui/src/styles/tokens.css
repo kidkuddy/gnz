@@ -6,22 +6,22 @@
   --bg-hover: #111111;
   --bg-active: #161616;
 
-  /* Borders — nearly invisible */
-  --border-subtle: transparent;
-  --border-default: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
+  /* Borders — subtle but present */
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Text — white at varying opacities */
-  --text-primary: #d4d4d4;
-  --text-secondary: #6b6b6b;
-  --text-tertiary: #404040;
-  --text-disabled: #282828;
+  /* Text — warm grey scale on pure black */
+  --text-primary: #e2e2e2;
+  --text-secondary: #8a8a8a;
+  --text-tertiary: #5c5c5c;
+  --text-disabled: #3a3a3a;
 
   /* Accent — white. nothing else. */
-  --accent: #d4d4d4;
+  --accent: #e2e2e2;
   --accent-hover: #ffffff;
-  --accent-muted: rgba(255, 255, 255, 0.04);
-  --accent-text: #d4d4d4;
+  --accent-muted: rgba(255, 255, 255, 0.05);
+  --accent-text: #e2e2e2;
 
   /* Status — muted, barely there */
   --status-success: #4a4a4a;
