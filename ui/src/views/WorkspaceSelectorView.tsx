@@ -1,9 +1,11 @@
 import React from 'react';
 import { Plus, Trash2, FolderOpen } from 'lucide-react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { useWorkspaceStore } from '../stores/workspace-store';
+import { parseWorkspaceSettings } from '../lib/tauri-ipc';
 import { toast } from 'sonner';
 import type { Workspace } from '../lib/tauri-ipc';
 
@@ -55,15 +57,38 @@ export function WorkspaceSelectorView() {
   const [showCreate, setShowCreate] = React.useState(false);
   const [newName, setNewName] = React.useState('');
   const [newDesc, setNewDesc] = React.useState('');
+  const [workingDir, setWorkingDir] = React.useState('');
+
+  const handleBrowse = async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false, title: 'Select project folder' });
+      if (selected) {
+        setWorkingDir(selected as string);
+        if (!newName.trim()) {
+          // Auto-fill name from folder name
+          const parts = (selected as string).replace(/\/$/, '').split('/');
+          setNewName(parts[parts.length - 1] || '');
+        }
+      }
+    } catch {
+      // User cancelled
+    }
+  };
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
     try {
-      const ws = await createWorkspace({ name: newName.trim(), description: newDesc.trim() || undefined });
+      const settings = JSON.stringify({ working_directory: workingDir || undefined });
+      const ws = await createWorkspace({
+        name: newName.trim(),
+        description: newDesc.trim() || undefined,
+        settings,
+      });
       selectWorkspace(ws);
       setShowCreate(false);
       setNewName('');
       setNewDesc('');
+      setWorkingDir('');
     } catch (err) {
       toast.error(`Failed to create workspace: ${err}`);
     }
@@ -100,7 +125,7 @@ export function WorkspaceSelectorView() {
         open={showCreate}
         onOpenChange={setShowCreate}
         title="Create Workspace"
-        description="Workspaces organize your database connections and queries."
+        description="Workspaces organize your connections, queries, and Claude sessions."
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <Input
@@ -116,6 +141,40 @@ export function WorkspaceSelectorView() {
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
           />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.02em' }}>
+              Project Folder
+            </label>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+              <div
+                style={{
+                  flex: 1,
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 var(--space-3)',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
+                  color: workingDir ? 'var(--text-primary)' : 'var(--text-disabled)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {workingDir || 'No folder selected'}
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleBrowse}>
+                <FolderOpen size={13} />
+                Browse
+              </Button>
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              Claude sessions will use this as their working directory.
+            </span>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
             <Button variant="secondary" onClick={() => setShowCreate(false)}>
               Cancel
@@ -140,6 +199,7 @@ function WorkspaceCard({
   onDelete: () => void;
 }) {
   const [hovered, setHovered] = React.useState(false);
+  const settings = parseWorkspaceSettings(workspace.settings);
 
   const cardStyle: React.CSSProperties = {
     display: 'flex',
@@ -166,6 +226,15 @@ function WorkspaceCard({
   const descStyle: React.CSSProperties = {
     fontSize: '12px',
     color: 'var(--text-tertiary)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  };
+
+  const pathStyle: React.CSSProperties = {
+    fontSize: '11px',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--text-disabled)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -198,6 +267,7 @@ function WorkspaceCard({
         {workspace.name}
       </div>
       {workspace.description && <div style={descStyle}>{workspace.description}</div>}
+      {settings.working_directory && <div style={pathStyle}>{settings.working_directory}</div>}
       <button
         style={deleteBtnStyle}
         onClick={(e) => {

@@ -16,6 +16,7 @@ import (
 	"github.com/clusterlab-ai/gnz/backend/internal/appdb"
 	"github.com/clusterlab-ai/gnz/backend/internal/config"
 	mcpserver "github.com/clusterlab-ai/gnz/backend/internal/mcp"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/claude"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
 	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
@@ -62,6 +63,18 @@ func main() {
 		})
 	}
 
+	// Initialize claude module
+	var claudeMgr *claude.Manager
+	if cfg.Features.Claude {
+		claudeStore := claude.NewStore(db)
+		claudeSvc := claude.NewService(claudeStore)
+		claudeMgr = claude.NewManager(claudeSvc)
+
+		srv.RegisterModuleRoutes(func(r chi.Router) {
+			claude.Register(r, claudeSvc, claudeMgr)
+		})
+	}
+
 	// Finalize routes
 	srv.Build()
 
@@ -72,6 +85,11 @@ func main() {
 			log.Fatalf("creating MCP server: %v", err)
 		}
 		srv.Router.Mount("/mcp", mcpSrv.Handler())
+	}
+
+	// Shutdown claude manager on exit
+	if claudeMgr != nil {
+		defer claudeMgr.Shutdown()
 	}
 
 	// Start HTTP server

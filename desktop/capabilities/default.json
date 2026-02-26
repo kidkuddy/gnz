@@ -8,6 +8,7 @@
     "shell:allow-spawn",
     "shell:allow-stdin-write",
     "shell:allow-kill",
-    "core:event:default"
+    "core:event:default",
+    "dialog:default"
   ]
 }

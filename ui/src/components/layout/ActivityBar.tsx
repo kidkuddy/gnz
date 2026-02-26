@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, Settings } from 'lucide-react';
+import { useTabRegistry } from '../../stores/tab-registry';
 
 interface ActivityBarProps {
   activeModule: string;
@@ -18,12 +18,10 @@ const containerStyle: React.CSSProperties = {
   width: 'var(--activity-bar-width)',
 };
 
-const modules = [
-  { id: 'database', icon: Database, label: 'Database' },
-  { id: 'settings', icon: Settings, label: 'Settings' },
-];
-
 export function ActivityBar({ activeModule, onModuleChange }: ActivityBarProps) {
+  const registry = useTabRegistry();
+  const modules = registry.getModules();
+
   return (
     <div style={containerStyle}>
       {modules.map((mod) => (

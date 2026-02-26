@@ -1,11 +1,10 @@
 import { create } from 'zustand';
-
-export type TabType = 'query-runner' | 'table-browser' | 'settings' | 'workspace-dashboard';
+import { tabRegistry } from './tab-registry';
 
 export interface Tab {
   id: string;
   title: string;
-  type: TabType;
+  type: string;
   moduleId: string;
   data?: Record<string, unknown>;
 }
@@ -16,6 +15,7 @@ interface TabState {
   addTab: (tab: Tab) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
+  renameTab: (id: string, title: string) => void;
 }
 
 export const useTabStore = create<TabState>((set, get) => ({
@@ -34,6 +34,11 @@ export const useTabStore = create<TabState>((set, get) => ({
 
   removeTab: (id) => {
     const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (tab) {
+      const def = tabRegistry.getTabDefinition(tab.type);
+      def?.onClose?.(tab);
+    }
     const idx = state.tabs.findIndex((t) => t.id === id);
     const newTabs = state.tabs.filter((t) => t.id !== id);
     let newActiveId = state.activeTabId;
@@ -51,5 +56,10 @@ export const useTabStore = create<TabState>((set, get) => ({
 
   setActiveTab: (id) => {
     set({ activeTabId: id });
+  },
+
+  renameTab: (id, title) => {
+    const state = get();
+    set({ tabs: state.tabs.map((t) => (t.id === id ? { ...t, title } : t)) });
   },
 }));

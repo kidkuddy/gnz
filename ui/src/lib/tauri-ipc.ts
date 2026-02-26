@@ -42,6 +42,30 @@ export const databaseApi = {
     apiPost<QueryResult>(`workspaces/${ws}/connections/${conn}/query`, { sql }),
 };
 
+// Claude API
+export interface HistoryMessage {
+  role: 'user' | 'assistant';
+  content: Record<string, unknown>[];
+}
+
+export const claudeApi = {
+  listSessions: (ws: string) => apiGet<ClaudeSession[]>(`workspaces/${ws}/claude/sessions`),
+  getSession: (ws: string, id: string) => apiGet<ClaudeSession>(`workspaces/${ws}/claude/sessions/${id}`),
+  createSession: (ws: string, data: CreateClaudeSessionInput) =>
+    apiPost<ClaudeSession>(`workspaces/${ws}/claude/sessions`, data),
+  updateSession: (ws: string, id: string, data: UpdateClaudeSessionInput) =>
+    apiPut<ClaudeSession>(`workspaces/${ws}/claude/sessions/${id}`, data),
+  deleteSession: (ws: string, id: string) => apiDelete(`workspaces/${ws}/claude/sessions/${id}`),
+  abort: (ws: string, id: string) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/abort`, {}),
+  getSessionHistory: (ws: string, id: string) =>
+    apiGet<HistoryMessage[]>(`workspaces/${ws}/claude/sessions/${id}/history`),
+};
+
+export async function getBackendPort(): Promise<number> {
+  return invoke<number>('get_backend_port');
+}
+
 // Config API
 export const configApi = {
   get: () => apiGet<AppConfig>('config'),
@@ -57,9 +81,22 @@ export interface Workspace {
   updated_at: string;
 }
 
+export interface WorkspaceSettings {
+  working_directory?: string;
+}
+
+export function parseWorkspaceSettings(settings: string): WorkspaceSettings {
+  try {
+    return JSON.parse(settings || '{}');
+  } catch {
+    return {};
+  }
+}
+
 export interface CreateWorkspaceInput {
   name: string;
   description?: string;
+  settings?: string;
 }
 
 export interface UpdateWorkspaceInput {
@@ -109,6 +146,29 @@ export interface QueryResult {
   duration_ms: number;
 }
 
+export interface ClaudeSession {
+  id: string;
+  workspace_id: string;
+  name: string;
+  claude_session_id?: string;
+  working_directory: string;
+  model: string;
+  status: 'idle' | 'running' | 'error';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateClaudeSessionInput {
+  name?: string;
+  working_directory: string;
+  model?: string;
+}
+
+export interface UpdateClaudeSessionInput {
+  name?: string;
+  model?: string;
+}
+
 export interface AppConfig {
   supported_databases: string[];
   supported_outputs: string[];
@@ -118,5 +178,6 @@ export interface AppConfig {
     logs: boolean;
     dashboard: boolean;
     sql_editor: boolean;
+    claude: boolean;
   };
 }

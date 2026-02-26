@@ -5,10 +5,7 @@ import { Panel } from './Panel';
 import { TabBar } from './TabBar';
 import { StatusBar } from './StatusBar';
 import { useTabStore } from '../../stores/tab-store';
-import { DatabasePanel } from '../../modules/database/components/DatabasePanel';
-import { ConnectionView } from '../../modules/database/views/ConnectionView';
-import { QueryRunnerView } from '../../modules/database/views/QueryRunnerView';
-import { SettingsView } from '../../modules/settings/views/SettingsView';
+import { useTabRegistry } from '../../stores/tab-registry';
 
 const shellStyle: React.CSSProperties = {
   display: 'grid',
@@ -47,21 +44,21 @@ interface AppShellProps {
 }
 
 function PanelContent({ activeModule }: { activeModule: string }) {
-  switch (activeModule) {
-    case 'database':
-      return <DatabasePanel />;
-    case 'settings':
-      return (
-        <div style={{ padding: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: '12px' }}>
-          Settings
-        </div>
-      );
-    default:
-      return null;
+  const registry = useTabRegistry();
+  const mod = registry.getModule(activeModule);
+  if (!mod?.panelComponent) {
+    return (
+      <div style={{ padding: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: '12px' }}>
+        {mod?.label || activeModule}
+      </div>
+    );
   }
+  const PanelComp = mod.panelComponent;
+  return <PanelComp />;
 }
 
 function MainContent() {
+  const registry = useTabRegistry();
   const activeTabId = useTabStore((s) => s.activeTabId);
   const tabs = useTabStore((s) => s.tabs);
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -74,25 +71,16 @@ function MainContent() {
     );
   }
 
-  switch (activeTab.type) {
-    case 'query-runner':
-      return <QueryRunnerView />;
-    case 'table-browser':
-      return (
-        <ConnectionView
-          tableName={activeTab.data?.tableName as string | undefined}
-          connectionId={activeTab.data?.connectionId as string | undefined}
-        />
-      );
-    case 'settings':
-      return <SettingsView />;
-    default:
-      return (
-        <div style={emptyMainStyle}>
-          <span>Unknown tab type</span>
-        </div>
-      );
+  const def = registry.getTabDefinition(activeTab.type);
+  if (!def) {
+    return (
+      <div style={emptyMainStyle}>
+        <span>Unknown tab type</span>
+      </div>
+    );
   }
+
+  return <>{def.renderContent(activeTab)}</>;
 }
 
 export function AppShell({ activeModule, onModuleChange }: AppShellProps) {

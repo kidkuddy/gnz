@@ -32,6 +32,11 @@ fn unwrap_envelope(body: Value) -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub fn get_backend_port(state: State<'_, BackendState>) -> u16 {
+    state.port
+}
+
+#[tauri::command]
 pub async fn proxy_get(
     state: State<'_, BackendState>,
     path: String,

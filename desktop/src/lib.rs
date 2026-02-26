@@ -11,6 +11,7 @@ struct SidecarState(Mutex<Option<sidecar::SidecarManager>>);
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(SidecarState(Mutex::new(None)))
         .setup(|app| {
             let port = portpicker::pick_unused_port()
@@ -38,6 +39,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::get_backend_port,
             commands::proxy_get,
             commands::proxy_post,
             commands::proxy_put,

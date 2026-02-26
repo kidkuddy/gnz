@@ -22,6 +22,7 @@ export function TabBar() {
   const activeTabId = useTabStore((s) => s.activeTabId);
   const setActiveTab = useTabStore((s) => s.setActiveTab);
   const removeTab = useTabStore((s) => s.removeTab);
+  const renameTab = useTabStore((s) => s.renameTab);
 
   return (
     <div style={containerStyle}>
@@ -32,6 +33,7 @@ export function TabBar() {
           isActive={tab.id === activeTabId}
           onSelect={() => setActiveTab(tab.id)}
           onClose={() => removeTab(tab.id)}
+          onRename={(title) => renameTab(tab.id, title)}
         />
       ))}
       <div style={emptyStyle} />
@@ -44,10 +46,46 @@ interface TabItemProps {
   isActive: boolean;
   onSelect: () => void;
   onClose: () => void;
+  onRename: (title: string) => void;
 }
 
-function TabItem({ tab, isActive, onSelect, onClose }: TabItemProps) {
+function TabItem({ tab, isActive, onSelect, onClose, onRename }: TabItemProps) {
   const [hovered, setHovered] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [editValue, setEditValue] = React.useState(tab.title);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const commitRename = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== tab.title) {
+      onRename(trimmed);
+    } else {
+      setEditValue(tab.title);
+    }
+    setEditing(false);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditValue(tab.title);
+    setEditing(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      commitRename();
+    } else if (e.key === 'Escape') {
+      setEditValue(tab.title);
+      setEditing(false);
+    }
+  };
 
   const tabStyle: React.CSSProperties = {
     display: 'flex',
@@ -63,7 +101,7 @@ function TabItem({ tab, isActive, onSelect, onClose }: TabItemProps) {
     userSelect: 'none',
     position: 'relative',
     minWidth: 0,
-    maxWidth: '180px',
+    maxWidth: '200px',
     transition: 'background 80ms ease',
   };
 
@@ -81,6 +119,20 @@ function TabItem({ tab, isActive, onSelect, onClose }: TabItemProps) {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--text-primary)',
+    fontSize: '12px',
+    fontFamily: 'var(--font-sans)',
+    padding: '0 4px',
+    outline: 'none',
+    width: '100%',
+    minWidth: '60px',
+    maxWidth: '160px',
   };
 
   const closeBtnStyle: React.CSSProperties = {
@@ -102,7 +154,21 @@ function TabItem({ tab, isActive, onSelect, onClose }: TabItemProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <span style={titleStyle}>{tab.title}</span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          style={inputStyle}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span style={titleStyle} onDoubleClick={handleDoubleClick}>
+          {tab.title}
+        </span>
+      )}
       <button
         style={closeBtnStyle}
         onClick={(e) => {
