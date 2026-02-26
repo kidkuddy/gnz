@@ -6,15 +6,14 @@ const containerStyle: React.CSSProperties = {
   gridArea: 'tabs',
   display: 'flex',
   alignItems: 'stretch',
-  background: 'var(--bg-surface)',
-  borderBottom: '1px solid var(--border-subtle)',
+  background: 'var(--bg-base)',
   height: 'var(--tabbar-height)',
   overflow: 'hidden',
 };
 
 const emptyStyle: React.CSSProperties = {
   flex: 1,
-  background: 'var(--bg-surface)',
+  background: 'var(--bg-base)',
 };
 
 export function TabBar() {
@@ -94,25 +93,14 @@ function TabItem({ tab, isActive, onSelect, onClose, onRename }: TabItemProps) {
     padding: '0 var(--space-3)',
     height: '100%',
     fontSize: '12px',
-    color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-    background: isActive ? 'var(--bg-base)' : hovered ? 'var(--bg-hover)' : 'transparent',
-    borderRight: '1px solid var(--border-subtle)',
+    color: isActive ? 'var(--text-primary)' : hovered ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+    background: 'transparent',
     cursor: 'pointer',
     userSelect: 'none',
     position: 'relative',
     minWidth: 0,
     maxWidth: '200px',
-    transition: 'background 80ms ease',
-  };
-
-  const activeIndicator: React.CSSProperties = {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '2px',
-    background: 'var(--accent)',
-    opacity: isActive ? 1 : 0,
+    transition: 'color 80ms ease',
   };
 
   const titleStyle: React.CSSProperties = {
@@ -123,8 +111,7 @@ function TabItem({ tab, isActive, onSelect, onClose, onRename }: TabItemProps) {
 
   const inputStyle: React.CSSProperties = {
     background: 'var(--bg-elevated)',
-    border: '1px solid var(--accent)',
-    borderRadius: 'var(--radius-sm)',
+    border: 'none',
     color: 'var(--text-primary)',
     fontSize: '12px',
     fontFamily: 'var(--font-sans)',
@@ -141,7 +128,6 @@ function TabItem({ tab, isActive, onSelect, onClose, onRename }: TabItemProps) {
     justifyContent: 'center',
     width: '16px',
     height: '16px',
-    borderRadius: 'var(--radius-sm)',
     color: 'var(--text-tertiary)',
     opacity: hovered || isActive ? 1 : 0,
     flexShrink: 0,
@@ -176,9 +162,8 @@ function TabItem({ tab, isActive, onSelect, onClose, onRename }: TabItemProps) {
           onClose();
         }}
       >
-        <X size={12} />
+        <X size={11} />
       </button>
-      <span style={activeIndicator} />
     </div>
   );
 }

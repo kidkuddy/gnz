@@ -93,7 +93,7 @@ export function ClaudePanel() {
   return (
     <>
       {activeSession && (
-        <div style={{ padding: 'var(--space-2) var(--space-3)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div style={{ padding: 'var(--space-2) var(--space-3)' }}>
           <PermissionModeSelect
             value={activeSession.permission_mode}
             onChange={(mode) => handlePermissionModeChange(activeSession.id, mode)}
@@ -167,9 +167,9 @@ function PermissionModeSelect({
 
 const selectLabelStyle: React.CSSProperties = {
   fontSize: '10px',
-  fontWeight: 600,
+  fontWeight: 500,
   textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  letterSpacing: '0.08em',
   color: 'var(--text-tertiary)',
   marginBottom: '4px',
 };
@@ -181,7 +181,7 @@ const selectStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
   background: 'var(--bg-elevated)',
   color: 'var(--text-primary)',
-  border: '1px solid var(--border-default)',
+  border: 'none',
   borderRadius: 'var(--radius-sm)',
   cursor: 'pointer',
   outline: 'none',
@@ -214,17 +214,17 @@ function SessionItem({ name, status, permissionMode, isActive, onSelect, onDelet
   const nameStyle: React.CSSProperties = {
     flex: 1,
     fontSize: '12px',
-    color: isActive ? 'var(--accent-text)' : 'var(--text-secondary)',
+    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   };
 
   const statusDotStyle: React.CSSProperties = {
-    width: '6px',
-    height: '6px',
+    width: '4px',
+    height: '4px',
     borderRadius: '50%',
-    background: status === 'running' ? 'var(--status-success)' : 'var(--border-strong)',
+    background: status === 'running' ? 'var(--text-secondary)' : 'var(--text-disabled)',
     flexShrink: 0,
   };
 

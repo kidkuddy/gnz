@@ -13,8 +13,7 @@ interface ModalProps {
 const overlayStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(0, 0, 0, 0.6)',
-  backdropFilter: 'blur(4px)',
+  background: 'rgba(0, 0, 0, 0.8)',
   zIndex: 100,
   animation: 'fadeIn 150ms ease',
 };
@@ -24,9 +23,8 @@ const contentStyle: React.CSSProperties = {
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-lg)',
+  background: '#050505',
+  borderRadius: 'var(--radius-md)',
   padding: 'var(--space-6)',
   minWidth: '420px',
   maxWidth: '560px',
@@ -38,7 +36,7 @@ const contentStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   fontSize: '15px',
-  fontWeight: 600,
+  fontWeight: 500,
   color: 'var(--text-primary)',
   marginBottom: 'var(--space-1)',
 };
@@ -58,7 +56,6 @@ const closeBtnStyle: React.CSSProperties = {
   justifyContent: 'center',
   width: '24px',
   height: '24px',
-  borderRadius: 'var(--radius-sm)',
   color: 'var(--text-tertiary)',
   cursor: 'pointer',
 };

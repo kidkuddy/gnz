@@ -30,22 +30,20 @@ const headerRowStyle: React.CSSProperties = {
   position: 'sticky',
   top: 0,
   zIndex: 10,
-  background: 'var(--bg-elevated)',
-  borderBottom: '1px solid var(--border-default)',
+  background: 'var(--bg-base)',
 };
 
 const headerCellStyle: React.CSSProperties = {
   padding: '6px var(--space-3)',
   fontSize: '11px',
-  fontWeight: 600,
+  fontWeight: 500,
   fontFamily: 'var(--font-mono)',
-  color: 'var(--text-secondary)',
+  color: 'var(--text-tertiary)',
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
   minWidth: '120px',
   maxWidth: '300px',
   flex: '1 0 120px',
-  borderRight: '1px solid var(--border-subtle)',
   userSelect: 'none',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -54,8 +52,7 @@ const headerCellStyle: React.CSSProperties = {
 
 const rowStyle = (index: number): React.CSSProperties => ({
   display: 'flex',
-  borderBottom: '1px solid var(--border-subtle)',
-  background: index % 2 === 0 ? 'transparent' : 'var(--bg-surface)',
+  background: index % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.01)',
 });
 
 const cellStyle: React.CSSProperties = {
@@ -66,7 +63,6 @@ const cellStyle: React.CSSProperties = {
   minWidth: '120px',
   maxWidth: '300px',
   flex: '1 0 120px',
-  borderRight: '1px solid var(--border-subtle)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -83,8 +79,7 @@ const footerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: 'var(--space-2) var(--space-3)',
-  borderTop: '1px solid var(--border-default)',
-  background: 'var(--bg-surface)',
+  background: 'var(--bg-base)',
   fontSize: '11px',
   fontFamily: 'var(--font-mono)',
   color: 'var(--text-tertiary)',

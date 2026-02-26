@@ -53,7 +53,6 @@ export function DatabasePanel() {
     }
   }, [activeWorkspace, activeConnection]);
 
-  // Close dropdown on outside click
   React.useEffect(() => {
     if (!selectorOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -99,7 +98,7 @@ export function DatabasePanel() {
   return (
     <>
       {/* Connection selector */}
-      <div style={{ padding: 'var(--space-3)', borderBottom: '1px solid var(--border-subtle)' }}>
+      <div style={{ padding: 'var(--space-3)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
           <div ref={selectorRef} style={{ flex: 1, position: 'relative' }}>
             <button
@@ -111,7 +110,7 @@ export function DatabasePanel() {
                 width: '100%',
                 padding: '6px 8px',
                 background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-default)',
+                border: 'none',
                 borderRadius: 'var(--radius-sm)',
                 color: activeConnection ? 'var(--text-primary)' : 'var(--text-disabled)',
                 fontSize: '12px',
@@ -133,7 +132,7 @@ export function DatabasePanel() {
                   'Select connection'
                 )}
               </span>
-              <ChevronDown size={12} style={{ flexShrink: 0, opacity: 0.5 }} />
+              <ChevronDown size={12} style={{ flexShrink: 0, opacity: 0.3 }} />
             </button>
 
             {selectorOpen && connections.length > 0 && (
@@ -144,8 +143,7 @@ export function DatabasePanel() {
                   left: 0,
                   right: 0,
                   marginTop: '2px',
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-default)',
+                  background: '#0a0a0a',
                   borderRadius: 'var(--radius-sm)',
                   zIndex: 100,
                   maxHeight: '200px',
@@ -180,7 +178,7 @@ export function DatabasePanel() {
 
       {/* Actions (only when connection selected) */}
       {activeConnection && (
-        <div style={{ padding: 'var(--space-2) var(--space-3)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div style={{ padding: 'var(--space-2) var(--space-3)' }}>
           <Button size="sm" variant="secondary" onClick={handleOpenQueryRunner} style={{ width: '100%', justifyContent: 'center', gap: '6px' }}>
             <Terminal size={12} />
             New Query
@@ -267,7 +265,6 @@ function ConnectionOption({
           background: 'none',
           border: 'none',
           padding: 0,
-          borderRadius: 'var(--radius-sm)',
         }}
         title="Delete connection"
       >

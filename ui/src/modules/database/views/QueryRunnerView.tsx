@@ -21,8 +21,7 @@ const editorToolbarStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: 'var(--space-1) var(--space-3)',
-  borderBottom: '1px solid var(--border-subtle)',
-  background: 'var(--bg-surface)',
+  background: 'var(--bg-base)',
   flexShrink: 0,
 };
 

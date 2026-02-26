@@ -1,49 +1,49 @@
 :root {
-  /* Backgrounds */
-  --bg-base: #0a0a0b;
-  --bg-surface: #111113;
-  --bg-elevated: #18181b;
-  --bg-hover: #1e1e22;
-  --bg-active: #252529;
+  /* Backgrounds — everything is black */
+  --bg-base: #000000;
+  --bg-surface: #000000;
+  --bg-elevated: #0a0a0a;
+  --bg-hover: #111111;
+  --bg-active: #161616;
 
-  /* Borders */
-  --border-subtle: #1e1e22;
-  --border-default: #27272a;
-  --border-strong: #3f3f46;
+  /* Borders — nearly invisible */
+  --border-subtle: transparent;
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.1);
 
-  /* Text */
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --text-disabled: #52525b;
+  /* Text — white at varying opacities */
+  --text-primary: #d4d4d4;
+  --text-secondary: #6b6b6b;
+  --text-tertiary: #404040;
+  --text-disabled: #282828;
 
-  /* Accent - Electric Teal */
-  --accent: #2dd4bf;
-  --accent-hover: #5eead4;
-  --accent-muted: rgba(45, 212, 191, 0.15);
-  --accent-text: #2dd4bf;
+  /* Accent — white. nothing else. */
+  --accent: #d4d4d4;
+  --accent-hover: #ffffff;
+  --accent-muted: rgba(255, 255, 255, 0.04);
+  --accent-text: #d4d4d4;
 
-  /* Status */
-  --status-success: #22c55e;
-  --status-error: #ef4444;
-  --status-warning: #f59e0b;
-  --status-info: #3b82f6;
+  /* Status — muted, barely there */
+  --status-success: #4a4a4a;
+  --status-error: #6b3a3a;
+  --status-warning: #5a4a2a;
+  --status-info: #3a4a6b;
 
   /* Fonts */
   --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 
   /* Sizing */
-  --activity-bar-width: 48px;
-  --panel-width: 260px;
+  --activity-bar-width: 44px;
+  --panel-width: 240px;
   --titlebar-height: 38px;
-  --tabbar-height: 36px;
-  --statusbar-height: 24px;
+  --tabbar-height: 34px;
+  --statusbar-height: 22px;
 
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  /* Radius — none. flat. */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
 
   /* Spacing */
   --space-1: 4px;

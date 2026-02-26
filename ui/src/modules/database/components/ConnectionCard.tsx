@@ -27,8 +27,7 @@ export function ConnectionCard({ connection, isActive, onSelect, onDelete }: Con
     padding: 'var(--space-2) var(--space-3)',
     cursor: 'pointer',
     background: isActive ? 'var(--accent-muted)' : hovered ? 'var(--bg-hover)' : 'transparent',
-    borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
-    transition: 'all 80ms ease',
+    transition: 'background 80ms ease',
   };
 
   const iconStyle: React.CSSProperties = {
@@ -37,9 +36,8 @@ export function ConnectionCard({ connection, isActive, onSelect, onDelete }: Con
     justifyContent: 'center',
     width: '28px',
     height: '28px',
-    borderRadius: 'var(--radius-sm)',
     background: 'var(--bg-elevated)',
-    color: isActive ? 'var(--accent-text)' : 'var(--text-tertiary)',
+    color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
     flexShrink: 0,
   };
 
@@ -63,7 +61,6 @@ export function ConnectionCard({ connection, isActive, onSelect, onDelete }: Con
     justifyContent: 'center',
     width: '20px',
     height: '20px',
-    borderRadius: 'var(--radius-sm)',
     color: 'var(--text-disabled)',
     opacity: hovered ? 1 : 0,
     transition: 'opacity 80ms ease',

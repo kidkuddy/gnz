@@ -20,6 +20,7 @@ const shellStyle: React.CSSProperties = {
   height: '100vh',
   width: '100vw',
   overflow: 'hidden',
+  background: 'var(--bg-base)',
 };
 
 const mainStyle: React.CSSProperties = {

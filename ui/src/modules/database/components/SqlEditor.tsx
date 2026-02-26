@@ -16,65 +16,64 @@ const gnzTheme = EditorView.theme({
     height: '100%',
     fontSize: '13px',
     fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
-    background: '#0a0a0b',
-    color: '#fafafa',
+    background: '#000000',
+    color: '#d4d4d4',
   },
   '.cm-content': {
     padding: '8px 0',
-    caretColor: '#2dd4bf',
+    caretColor: '#d4d4d4',
   },
   '.cm-cursor': {
-    borderLeftColor: '#2dd4bf',
-    borderLeftWidth: '2px',
+    borderLeftColor: '#d4d4d4',
+    borderLeftWidth: '1.5px',
   },
   '.cm-activeLine': {
-    backgroundColor: 'rgba(45, 212, 191, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(45, 212, 191, 0.15) !important',
+    backgroundColor: 'rgba(255, 255, 255, 0.08) !important',
   },
   '.cm-gutters': {
-    background: '#111113',
-    borderRight: '1px solid #1e1e22',
-    color: '#52525b',
+    background: '#000000',
+    borderRight: 'none',
+    color: '#282828',
   },
   '.cm-activeLineGutter': {
-    background: '#18181b',
-    color: '#a1a1aa',
+    background: 'transparent',
+    color: '#404040',
   },
   '.cm-foldPlaceholder': {
     background: 'transparent',
     border: 'none',
-    color: '#71717a',
+    color: '#404040',
   },
   '.cm-tooltip': {
-    background: '#18181b',
-    border: '1px solid #27272a',
-    borderRadius: '6px',
-    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+    background: '#0a0a0a',
+    border: 'none',
+    borderRadius: '3px',
   },
   '.cm-tooltip-autocomplete ul li[aria-selected]': {
-    background: 'rgba(45, 212, 191, 0.15)',
-    color: '#fafafa',
+    background: 'rgba(255, 255, 255, 0.06)',
+    color: '#d4d4d4',
   },
   '.cm-panels': {
-    background: '#111113',
-    color: '#a1a1aa',
+    background: '#000000',
+    color: '#6b6b6b',
   },
   '.cm-searchMatch': {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   '.cm-searchMatch.cm-searchMatch-selected': {
-    backgroundColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
 });
 
 const gnzHighlight = EditorView.baseTheme({
-  '.ͼb': { color: '#2dd4bf' },   // keyword
-  '.ͼd': { color: '#a1a1aa' },   // comment
-  '.ͼc': { color: '#22c55e' },   // string
-  '.ͼe': { color: '#f59e0b' },   // number
-  '.ͼm': { color: '#3b82f6' },   // type
+  '.ͼb': { color: '#808080' },   // keyword
+  '.ͼd': { color: '#404040' },   // comment
+  '.ͼc': { color: '#6b6b6b' },   // string
+  '.ͼe': { color: '#808080' },   // number
+  '.ͼm': { color: '#6b6b6b' },   // type
 });
 
 export function SqlEditor({ value, onChange, onExecute }: SqlEditorProps) {

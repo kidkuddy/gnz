@@ -21,14 +21,12 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = React.useState(true);
 
-  // Auto-scroll on new content
   React.useEffect(() => {
     if (autoScroll && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, autoScroll]);
 
-  // Detect manual scroll
   const handleScroll = () => {
     if (!containerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
@@ -101,10 +99,10 @@ const streamingIndicatorStyle: React.CSSProperties = {
 };
 
 const dotStyle: React.CSSProperties = {
-  width: '5px',
-  height: '5px',
+  width: '4px',
+  height: '4px',
   borderRadius: '50%',
-  background: 'var(--accent)',
+  background: 'var(--text-tertiary)',
   animation: 'pulse 1.2s ease-in-out infinite',
 };
 
@@ -115,7 +113,6 @@ type GroupedBlock =
   | { kind: 'tool-pair'; toolUse: MessageContent; toolResult: MessageContent };
 
 function groupToolBlocks(content: MessageContent[]): GroupedBlock[] {
-  // Index tool_results by their toolUseId
   const resultMap = new Map<string, MessageContent>();
   const usedResults = new Set<number>();
 
@@ -134,14 +131,12 @@ function groupToolBlocks(content: MessageContent[]): GroupedBlock[] {
       const result = resultMap.get(block.toolUseId);
       if (result) {
         groups.push({ kind: 'tool-pair', toolUse: block, toolResult: result });
-        // Mark the result index as consumed
         const resultIdx = content.indexOf(result);
         if (resultIdx >= 0) usedResults.add(resultIdx);
       } else {
         groups.push({ kind: 'single', block });
       }
     } else if (block.type === 'tool_result') {
-      // Skip if already paired
       if (usedResults.has(i)) continue;
       groups.push({ kind: 'single', block });
     } else {
@@ -165,15 +160,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   };
 
   const iconStyle: React.CSSProperties = {
-    width: '24px',
-    height: '24px',
-    borderRadius: 'var(--radius-md)',
+    width: '22px',
+    height: '22px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    background: isUser ? 'var(--bg-elevated)' : 'var(--accent-muted)',
-    color: isUser ? 'var(--text-secondary)' : 'var(--accent-text)',
+    color: 'var(--text-tertiary)',
     marginTop: '2px',
   };
 
@@ -229,19 +222,19 @@ const markdownComponents: Record<string, React.ComponentType<Record<string, unkn
   p: ({ children, ...props }: Record<string, unknown>) =>
     React.createElement('p', { ...props, style: { margin: '0 0 8px 0' } }, children as React.ReactNode),
   h1: ({ children, ...props }: Record<string, unknown>) =>
-    React.createElement('h1', { ...props, style: { fontSize: '18px', fontWeight: 700, margin: '16px 0 8px 0', color: 'var(--text-primary)' } }, children as React.ReactNode),
+    React.createElement('h1', { ...props, style: { fontSize: '18px', fontWeight: 600, margin: '16px 0 8px 0', color: 'var(--text-primary)' } }, children as React.ReactNode),
   h2: ({ children, ...props }: Record<string, unknown>) =>
-    React.createElement('h2', { ...props, style: { fontSize: '16px', fontWeight: 600, margin: '14px 0 6px 0', color: 'var(--text-primary)' } }, children as React.ReactNode),
+    React.createElement('h2', { ...props, style: { fontSize: '16px', fontWeight: 500, margin: '14px 0 6px 0', color: 'var(--text-primary)' } }, children as React.ReactNode),
   h3: ({ children, ...props }: Record<string, unknown>) =>
-    React.createElement('h3', { ...props, style: { fontSize: '14px', fontWeight: 600, margin: '12px 0 4px 0', color: 'var(--text-primary)' } }, children as React.ReactNode),
+    React.createElement('h3', { ...props, style: { fontSize: '14px', fontWeight: 500, margin: '12px 0 4px 0', color: 'var(--text-primary)' } }, children as React.ReactNode),
   ul: ({ children, ...props }: Record<string, unknown>) =>
     React.createElement('ul', { ...props, style: { margin: '4px 0', paddingLeft: '20px' } }, children as React.ReactNode),
   ol: ({ children, ...props }: Record<string, unknown>) =>
     React.createElement('ol', { ...props, style: { margin: '4px 0', paddingLeft: '20px' } }, children as React.ReactNode),
   a: ({ children, href, ...props }: Record<string, unknown>) =>
-    React.createElement('a', { ...props, href: href as string, target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)', textDecoration: 'none' } }, children as React.ReactNode),
+    React.createElement('a', { ...props, href: href as string, target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--text-primary)', textDecoration: 'underline', textUnderlineOffset: '2px' } }, children as React.ReactNode),
   blockquote: ({ children, ...props }: Record<string, unknown>) =>
-    React.createElement('blockquote', { ...props, style: { margin: '8px 0', paddingLeft: '12px', borderLeft: '3px solid var(--border-strong)', color: 'var(--text-secondary)' } }, children as React.ReactNode),
+    React.createElement('blockquote', { ...props, style: { margin: '8px 0', paddingLeft: '12px', borderLeft: '2px solid var(--text-disabled)', color: 'var(--text-secondary)' } }, children as React.ReactNode),
   code: ({ children, className, ...props }: Record<string, unknown>) => {
     const isBlock = typeof className === 'string' && className.startsWith('language-');
     if (isBlock) {
@@ -252,8 +245,7 @@ const markdownComponents: Record<string, React.ComponentType<Record<string, unkn
             margin: '8px 0',
             padding: '12px',
             background: 'var(--bg-elevated)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
             overflow: 'auto',
             maxHeight: '400px',
             fontSize: '12px',
@@ -271,7 +263,7 @@ const markdownComponents: Record<string, React.ComponentType<Record<string, unkn
         style: {
           padding: '1px 5px',
           background: 'var(--bg-elevated)',
-          borderRadius: '3px',
+          borderRadius: '2px',
           fontSize: '12px',
           fontFamily: 'var(--font-mono)',
         },
@@ -280,7 +272,6 @@ const markdownComponents: Record<string, React.ComponentType<Record<string, unkn
     );
   },
   pre: ({ children, ...props }: Record<string, unknown>) => {
-    // If children already wrapped in our custom code block, just pass through
     return React.createElement(
       'pre',
       {
@@ -289,8 +280,7 @@ const markdownComponents: Record<string, React.ComponentType<Record<string, unkn
           margin: '8px 0',
           padding: '12px',
           background: 'var(--bg-elevated)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-sm)',
           overflow: 'auto',
           maxHeight: '400px',
           fontSize: '12px',
@@ -327,7 +317,7 @@ function ToolPairBlock({ toolUse, toolResult }: { toolUse: MessageContent; toolR
       <div style={toolHeaderStyle} onClick={() => setExpanded(!expanded)}>
         {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         <Wrench size={11} />
-        <span style={{ fontWeight: 600 }}>{toolUse.tool}</span>
+        <span style={{ fontWeight: 500 }}>{toolUse.tool}</span>
         {summary && (
           <span style={toolSummaryStyle}>{summary}</span>
         )}
@@ -340,7 +330,7 @@ function ToolPairBlock({ toolUse, toolResult }: { toolUse: MessageContent; toolR
       {expanded && (
         <div style={toolResultContainerStyle}>
           <div style={toolResultHeaderStyle}>Output</div>
-          <div style={{ padding: 'var(--space-2)', background: 'var(--bg-surface)', maxHeight: '200px', overflow: 'auto' }}>
+          <div style={{ padding: 'var(--space-2)', background: 'var(--bg-base)', maxHeight: '200px', overflow: 'auto' }}>
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
               {isLong ? resultContent.slice(0, 2000) + (resultContent.length > 2000 ? '\n…truncated' : '') : resultContent}
             </pre>
@@ -354,8 +344,8 @@ function ToolPairBlock({ toolUse, toolResult }: { toolUse: MessageContent; toolR
 const toolPairContainerStyle: React.CSSProperties = {
   marginTop: 'var(--space-2)',
   marginBottom: 'var(--space-1)',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 'var(--radius-md)',
+  background: 'var(--bg-elevated)',
+  borderRadius: 'var(--radius-sm)',
   overflow: 'hidden',
 };
 
@@ -364,7 +354,6 @@ const toolHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 'var(--space-1)',
   padding: 'var(--space-1) var(--space-2)',
-  background: 'var(--bg-elevated)',
   cursor: 'pointer',
   fontSize: '12px',
   color: 'var(--text-secondary)',
@@ -387,11 +376,9 @@ const toolInputPreStyle: React.CSSProperties = {
   color: 'var(--text-secondary)',
   overflow: 'auto',
   maxHeight: '200px',
-  borderTop: '1px solid var(--border-subtle)',
 };
 
 const toolResultContainerStyle: React.CSSProperties = {
-  borderTop: '1px solid var(--border-subtle)',
   fontSize: '11px',
   overflow: 'hidden',
 };
@@ -399,7 +386,7 @@ const toolResultContainerStyle: React.CSSProperties = {
 const toolResultHeaderStyle: React.CSSProperties = {
   padding: 'var(--space-1) var(--space-2)',
   background: 'var(--bg-elevated)',
-  fontWeight: 600,
+  fontWeight: 500,
   color: 'var(--text-disabled)',
   fontSize: '11px',
 };
@@ -427,11 +414,11 @@ function ToolUseBlock({ tool, input }: { tool: string; input?: Record<string, un
       <div style={toolHeaderStyle} onClick={() => setExpanded(!expanded)}>
         {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         <Wrench size={11} />
-        <span style={{ fontWeight: 600 }}>{tool}</span>
+        <span style={{ fontWeight: 500 }}>{tool}</span>
         {summary && <span style={toolSummaryStyle}>{summary}</span>}
       </div>
       {expanded && input && (
-        <pre style={{ ...toolInputPreStyle, margin: '0 0 var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+        <pre style={{ ...toolInputPreStyle, margin: '0 0 var(--space-2)', borderRadius: 'var(--radius-sm)' }}>
           {JSON.stringify(input, null, 2)}
         </pre>
       )}
@@ -447,12 +434,12 @@ function ToolResultBlock({ content }: { content: string }) {
     <div
       style={{
         marginBottom: 'var(--space-2)',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-sm)',
         fontSize: '11px',
         fontFamily: 'var(--font-mono)',
         color: 'var(--text-tertiary)',
         overflow: 'hidden',
-        border: '1px solid var(--border-subtle)',
+        background: 'var(--bg-elevated)',
       }}
     >
       <div
@@ -461,9 +448,8 @@ function ToolResultBlock({ content }: { content: string }) {
           alignItems: 'center',
           gap: 'var(--space-1)',
           padding: 'var(--space-1) var(--space-2)',
-          background: 'var(--bg-elevated)',
           fontSize: '11px',
-          fontWeight: 600,
+          fontWeight: 500,
           color: 'var(--text-disabled)',
           cursor: isLong ? 'pointer' : undefined,
           userSelect: 'none',
@@ -476,7 +462,7 @@ function ToolResultBlock({ content }: { content: string }) {
       <div
         style={{
           padding: 'var(--space-2)',
-          background: 'var(--bg-surface)',
+          background: 'var(--bg-base)',
           maxHeight: expanded ? 'none' : '80px',
           overflow: 'hidden',
           position: 'relative',
@@ -491,7 +477,7 @@ function ToolResultBlock({ content }: { content: string }) {
               left: 0,
               right: 0,
               height: '30px',
-              background: 'linear-gradient(transparent, var(--bg-surface))',
+              background: 'linear-gradient(transparent, var(--bg-base))',
             }}
           />
         )}

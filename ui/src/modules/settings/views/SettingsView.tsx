@@ -2,17 +2,8 @@ import { useSettingsStore } from '../../../stores/settings-store';
 import { Badge } from '../../../components/ui/Badge';
 
 const containerStyle: React.CSSProperties = {
-  padding: 'var(--space-8)',
   maxWidth: '640px',
   overflow: 'auto',
-  height: '100%',
-};
-
-const titleStyle: React.CSSProperties = {
-  fontSize: '18px',
-  fontWeight: 600,
-  color: 'var(--text-primary)',
-  marginBottom: 'var(--space-6)',
 };
 
 const sectionStyle: React.CSSProperties = {
@@ -20,18 +11,17 @@ const sectionStyle: React.CSSProperties = {
 };
 
 const sectionTitleStyle: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 600,
+  fontSize: '10px',
+  fontWeight: 500,
   textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  letterSpacing: '0.08em',
   color: 'var(--text-tertiary)',
   marginBottom: 'var(--space-3)',
 };
 
 const cardStyle: React.CSSProperties = {
-  background: 'var(--bg-surface)',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-lg)',
+  background: 'var(--bg-elevated)',
+  borderRadius: 'var(--radius-md)',
   padding: 'var(--space-4)',
 };
 
@@ -40,7 +30,6 @@ const rowStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: 'var(--space-2) 0',
-  borderBottom: '1px solid var(--border-subtle)',
 };
 
 const labelStyle: React.CSSProperties = {
@@ -54,7 +43,6 @@ export function SettingsView() {
   if (!config) {
     return (
       <div style={containerStyle}>
-        <div style={titleStyle}>Settings</div>
         <div style={{ color: 'var(--text-disabled)', fontSize: '13px' }}>
           Loading configuration...
         </div>
@@ -66,19 +54,11 @@ export function SettingsView() {
 
   return (
     <div style={containerStyle}>
-      <div style={titleStyle}>Settings</div>
-
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Feature Flags</div>
         <div style={cardStyle}>
-          {features.map(([key, enabled], idx) => (
-            <div
-              key={key}
-              style={{
-                ...rowStyle,
-                borderBottom: idx === features.length - 1 ? 'none' : rowStyle.borderBottom,
-              }}
-            >
+          {features.map(([key, enabled]) => (
+            <div key={key} style={rowStyle}>
               <span style={labelStyle}>{key}</span>
               <Badge variant={enabled ? 'success' : 'default'}>
                 {enabled ? 'enabled' : 'disabled'}

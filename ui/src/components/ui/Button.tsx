@@ -11,19 +11,17 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
   primary: {
-    background: 'var(--accent)',
-    color: '#0a0a0b',
-    fontWeight: 600,
+    background: 'var(--text-primary)',
+    color: '#000000',
+    fontWeight: 500,
   },
   secondary: {
     background: 'transparent',
     color: 'var(--text-secondary)',
-    border: '1px solid var(--border-default)',
   },
   danger: {
     background: 'transparent',
     color: 'var(--status-error)',
-    border: '1px solid var(--status-error)',
   },
 };
 
@@ -36,7 +34,7 @@ const variantHoverStyles: Record<ButtonVariant, React.CSSProperties> = {
     color: 'var(--text-primary)',
   },
   danger: {
-    background: 'rgba(239, 68, 68, 0.1)',
+    background: 'rgba(107, 58, 58, 0.15)',
   },
 };
 
@@ -44,12 +42,12 @@ const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
   sm: {
     padding: '4px 10px',
     fontSize: '12px',
-    height: '28px',
+    height: '26px',
   },
   md: {
     padding: '6px 14px',
     fontSize: '13px',
-    height: '32px',
+    height: '30px',
   },
 };
 
@@ -68,12 +66,13 @@ export function Button({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 'var(--space-1)',
-    borderRadius: 'var(--radius-md)',
+    borderRadius: 'var(--radius-sm)',
     fontFamily: 'var(--font-sans)',
     cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'all 120ms ease',
+    transition: 'all 100ms ease',
     whiteSpace: 'nowrap',
-    opacity: disabled ? 0.5 : 1,
+    opacity: disabled ? 0.3 : 1,
+    border: 'none',
     ...sizeStyles[size],
     ...variantStyles[variant],
     ...(hovered && !disabled ? variantHoverStyles[variant] : {}),

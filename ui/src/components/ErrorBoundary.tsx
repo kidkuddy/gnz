@@ -28,25 +28,24 @@ export class ErrorBoundary extends React.Component<Props, State> {
             alignItems: 'center',
             justifyContent: 'center',
             height: '100vh',
-            background: '#0a0a0b',
-            color: '#ef4444',
+            background: '#000000',
+            color: '#6b6b6b',
             fontFamily: 'monospace',
             padding: '32px',
             gap: '16px',
           }}
         >
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>Something crashed</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: '#d4d4d4' }}>Something crashed</div>
           <pre
             style={{
               fontSize: '12px',
-              color: '#a1a1aa',
+              color: '#6b6b6b',
               maxWidth: '600px',
               overflow: 'auto',
               whiteSpace: 'pre-wrap',
-              background: '#111113',
+              background: '#0a0a0a',
               padding: '16px',
-              borderRadius: '6px',
-              border: '1px solid #27272a',
+              borderRadius: '3px',
             }}
           >
             {this.state.error.message}
@@ -61,10 +60,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
               }}
               style={{
                 padding: '8px 16px',
-                background: '#18181b',
-                border: '1px solid #27272a',
-                borderRadius: '4px',
-                color: '#fafafa',
+                background: '#0a0a0a',
+                border: 'none',
+                borderRadius: '3px',
+                color: '#d4d4d4',
                 cursor: 'pointer',
                 fontSize: '12px',
               }}
@@ -75,10 +74,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
               onClick={() => this.setState({ error: null })}
               style={{
                 padding: '8px 16px',
-                background: '#18181b',
-                border: '1px solid #27272a',
-                borderRadius: '4px',
-                color: '#fafafa',
+                background: '#0a0a0a',
+                border: 'none',
+                borderRadius: '3px',
+                color: '#d4d4d4',
                 cursor: 'pointer',
                 fontSize: '12px',
               }}

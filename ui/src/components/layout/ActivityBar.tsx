@@ -12,9 +12,8 @@ const containerStyle: React.CSSProperties = {
   flexDirection: 'column',
   alignItems: 'center',
   paddingTop: 'var(--space-2)',
-  gap: 'var(--space-1)',
-  background: 'var(--bg-surface)',
-  borderRight: '1px solid var(--border-subtle)',
+  gap: '2px',
+  background: 'var(--bg-base)',
   width: 'var(--activity-bar-width)',
 };
 
@@ -51,26 +50,12 @@ function ActivityBarItem({ icon: Icon, label, isActive, onClick }: ActivityBarIt
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '36px',
-    height: '36px',
-    borderRadius: 'var(--radius-md)',
+    width: '34px',
+    height: '34px',
     cursor: 'pointer',
-    position: 'relative',
-    color: isActive ? 'var(--accent-text)' : hovered ? 'var(--text-primary)' : 'var(--text-tertiary)',
-    background: isActive ? 'var(--accent-muted)' : hovered ? 'var(--bg-hover)' : 'transparent',
-    transition: 'all 120ms ease',
-  };
-
-  const indicatorStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: '-6px',
-    width: '3px',
-    height: '16px',
-    borderRadius: '0 2px 2px 0',
-    background: 'var(--accent)',
-    opacity: isActive ? 1 : 0,
-    transition: 'opacity 120ms ease',
-    pointerEvents: 'none',
+    color: isActive ? 'var(--text-primary)' : hovered ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+    background: 'transparent',
+    transition: 'color 100ms ease',
   };
 
   return (
@@ -81,8 +66,7 @@ function ActivityBarItem({ icon: Icon, label, isActive, onClick }: ActivityBarIt
       onMouseLeave={() => setHovered(false)}
       title={label}
     >
-      <span style={indicatorStyle} />
-      <Icon size={18} strokeWidth={1.5} />
+      <Icon size={17} strokeWidth={1.5} />
     </button>
   );
 }

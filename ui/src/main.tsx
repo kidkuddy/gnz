@@ -5,13 +5,13 @@ import { Toast } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerClaudeModule } from './modules/claude/register';
 import { registerDatabaseModule } from './modules/database/register';
-import { registerSettingsModule } from './modules/settings/register';
+import { registerSearchModule } from './modules/search/register';
 import './styles/global.css';
 
 // Registration order determines activity bar order
 registerClaudeModule();
 registerDatabaseModule();
-registerSettingsModule();
+registerSearchModule();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

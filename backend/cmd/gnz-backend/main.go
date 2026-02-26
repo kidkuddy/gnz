@@ -18,6 +18,7 @@ import (
 	mcpserver "github.com/clusterlab-ai/gnz/backend/internal/mcp"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/claude"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/files"
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
 	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
@@ -74,6 +75,11 @@ func main() {
 			claude.Register(r, claudeSvc, claudeMgr)
 		})
 	}
+
+	// Register files module routes
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		files.Register(r, wsSvc)
+	})
 
 	// Finalize routes
 	srv.Build()

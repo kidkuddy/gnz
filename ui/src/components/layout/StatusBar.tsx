@@ -6,8 +6,7 @@ const containerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '0 var(--space-3)',
-  background: 'var(--bg-surface)',
-  borderTop: '1px solid var(--border-subtle)',
+  background: 'var(--bg-base)',
   height: 'var(--statusbar-height)',
   fontSize: '11px',
   fontFamily: 'var(--font-mono)',
@@ -27,10 +26,10 @@ const rightStyle: React.CSSProperties = {
 };
 
 const dotStyle = (connected: boolean): React.CSSProperties => ({
-  width: '6px',
-  height: '6px',
+  width: '4px',
+  height: '4px',
   borderRadius: '50%',
-  background: connected ? 'var(--status-success)' : 'var(--text-disabled)',
+  background: connected ? 'var(--text-secondary)' : 'var(--text-disabled)',
   display: 'inline-block',
 });
 

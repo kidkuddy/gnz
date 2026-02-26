@@ -8,8 +8,7 @@ const containerStyle: React.CSSProperties = {
   gridArea: 'panel',
   display: 'flex',
   flexDirection: 'column',
-  background: 'var(--bg-surface)',
-  borderRight: '1px solid var(--border-subtle)',
+  background: 'var(--bg-base)',
   width: 'var(--panel-width)',
   overflow: 'hidden',
 };
@@ -29,14 +28,13 @@ const sectionHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: 'var(--space-2) var(--space-3)',
-  borderBottom: '1px solid var(--border-subtle)',
 };
 
 const sectionTitleStyle: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 600,
+  fontSize: '10px',
+  fontWeight: 500,
   textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  letterSpacing: '0.08em',
   color: 'var(--text-tertiary)',
 };
 

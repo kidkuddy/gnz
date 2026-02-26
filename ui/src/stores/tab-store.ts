@@ -16,6 +16,7 @@ interface TabState {
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   renameTab: (id: string, title: string) => void;
+  clearTabs: () => void;
 }
 
 export const useTabStore = create<TabState>((set, get) => ({
@@ -61,5 +62,9 @@ export const useTabStore = create<TabState>((set, get) => ({
   renameTab: (id, title) => {
     const state = get();
     set({ tabs: state.tabs.map((t) => (t.id === id ? { ...t, title } : t)) });
+  },
+
+  clearTabs: () => {
+    set({ tabs: [], activeTabId: null });
   },
 }));

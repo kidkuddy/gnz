@@ -22,9 +22,9 @@ const containerStyle: React.CSSProperties = {
 
 const logoStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
-  fontWeight: 700,
+  fontWeight: 600,
   fontSize: '28px',
-  color: 'var(--accent-text)',
+  color: 'var(--text-primary)',
   letterSpacing: '-0.04em',
   marginBottom: 'var(--space-1)',
 };
@@ -65,7 +65,6 @@ export function WorkspaceSelectorView() {
       if (selected) {
         setWorkingDir(selected as string);
         if (!newName.trim()) {
-          // Auto-fill name from folder name
           const parts = (selected as string).replace(/\/$/, '').split('/');
           setNewName(parts[parts.length - 1] || '');
         }
@@ -142,20 +141,19 @@ export function WorkspaceSelectorView() {
             onChange={(e) => setNewDesc(e.target.value)}
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.02em' }}>
+            <label style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-secondary)', letterSpacing: '0.02em' }}>
               Project Folder
             </label>
             <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
               <div
                 style={{
                   flex: 1,
-                  height: '32px',
+                  height: '30px',
                   display: 'flex',
                   alignItems: 'center',
                   padding: '0 var(--space-3)',
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: '12px',
                   fontFamily: 'var(--font-mono)',
                   color: workingDir ? 'var(--text-primary)' : 'var(--text-disabled)',
@@ -206,11 +204,10 @@ function WorkspaceCard({
     flexDirection: 'column',
     gap: 'var(--space-2)',
     padding: 'var(--space-4)',
-    background: hovered ? 'var(--bg-hover)' : 'var(--bg-surface)',
-    border: '1px solid var(--border-default)',
-    borderRadius: 'var(--radius-lg)',
+    background: hovered ? 'var(--bg-hover)' : 'var(--bg-elevated)',
+    borderRadius: 'var(--radius-md)',
     cursor: 'pointer',
-    transition: 'all 120ms ease',
+    transition: 'background 100ms ease',
     position: 'relative',
   };
 
@@ -219,7 +216,7 @@ function WorkspaceCard({
     alignItems: 'center',
     gap: 'var(--space-2)',
     fontSize: '14px',
-    fontWeight: 600,
+    fontWeight: 500,
     color: 'var(--text-primary)',
   };
 
@@ -249,7 +246,6 @@ function WorkspaceCard({
     justifyContent: 'center',
     width: '24px',
     height: '24px',
-    borderRadius: 'var(--radius-sm)',
     color: 'var(--text-disabled)',
     opacity: hovered ? 1 : 0,
     transition: 'opacity 80ms ease',
@@ -263,7 +259,7 @@ function WorkspaceCard({
       onMouseLeave={() => setHovered(false)}
     >
       <div style={nameStyle}>
-        <FolderOpen size={16} color="var(--accent-text)" />
+        <FolderOpen size={16} color="var(--text-tertiary)" />
         {workspace.name}
       </div>
       {workspace.description && <div style={descStyle}>{workspace.description}</div>}

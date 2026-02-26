@@ -16,7 +16,6 @@ export function SessionInput({ onSend, onAbort, isStreaming }: SessionInputProps
     if (!trimmed || isStreaming) return;
     onSend(trimmed);
     setText('');
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -33,7 +32,6 @@ export function SessionInput({ onSend, onAbort, isStreaming }: SessionInputProps
     }
   };
 
-  // Auto-resize textarea
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
     const target = e.target;
@@ -65,7 +63,7 @@ export function SessionInput({ onSend, onAbort, isStreaming }: SessionInputProps
               disabled={!text.trim()}
               style={{
                 ...sendBtnStyle,
-                opacity: text.trim() ? 1 : 0.3,
+                opacity: text.trim() ? 1 : 0.2,
               }}
               title="Send (Cmd+Enter)"
             >
@@ -80,17 +78,15 @@ export function SessionInput({ onSend, onAbort, isStreaming }: SessionInputProps
 
 const containerStyle: React.CSSProperties = {
   padding: 'var(--space-3)',
-  borderTop: '1px solid var(--border-subtle)',
-  background: 'var(--bg-surface)',
+  background: 'var(--bg-base)',
 };
 
 const inputWrapperStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-end',
   gap: 'var(--space-2)',
-  background: 'var(--bg-base)',
-  borderRadius: 'var(--radius-lg)',
-  border: '1px solid var(--border-default)',
+  background: 'var(--bg-elevated)',
+  borderRadius: 'var(--radius-md)',
   padding: 'var(--space-2) var(--space-3)',
 };
 
@@ -120,9 +116,9 @@ const sendBtnStyle: React.CSSProperties = {
   justifyContent: 'center',
   width: '28px',
   height: '28px',
-  borderRadius: 'var(--radius-md)',
-  background: 'var(--accent)',
-  color: '#0a0a0b',
+  borderRadius: 'var(--radius-sm)',
+  background: 'var(--text-primary)',
+  color: '#000000',
   border: 'none',
   cursor: 'pointer',
 };
@@ -133,9 +129,9 @@ const abortBtnStyle: React.CSSProperties = {
   justifyContent: 'center',
   width: '28px',
   height: '28px',
-  borderRadius: 'var(--radius-md)',
-  background: 'var(--status-error)',
-  color: '#fff',
+  borderRadius: 'var(--radius-sm)',
+  background: 'var(--text-secondary)',
+  color: '#000000',
   border: 'none',
   cursor: 'pointer',
 };

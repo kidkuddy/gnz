@@ -17,7 +17,7 @@ interface SelectProps {
 
 const labelStyle: React.CSSProperties = {
   fontSize: '12px',
-  fontWeight: 500,
+  fontWeight: 400,
   color: 'var(--text-secondary)',
   letterSpacing: '0.02em',
   marginBottom: 'var(--space-1)',
@@ -29,11 +29,11 @@ const triggerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   width: '100%',
-  height: '32px',
+  height: '30px',
   padding: '0 var(--space-3)',
-  background: 'var(--bg-surface)',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-md)',
+  background: 'var(--bg-elevated)',
+  border: 'none',
+  borderRadius: 'var(--radius-sm)',
   color: 'var(--text-primary)',
   fontSize: '13px',
   fontFamily: 'var(--font-sans)',
@@ -43,11 +43,9 @@ const triggerStyle: React.CSSProperties = {
 };
 
 const contentStyle: React.CSSProperties = {
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-md)',
+  background: '#0a0a0a',
+  borderRadius: 'var(--radius-sm)',
   padding: 'var(--space-1)',
-  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
   zIndex: 200,
   minWidth: 'var(--radix-select-trigger-width)',
   overflow: 'hidden',
@@ -110,7 +108,7 @@ const SelectItem = React.forwardRef<
   >
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     <SelectPrimitive.ItemIndicator>
-      <Check size={12} color="var(--accent)" />
+      <Check size={12} color="var(--text-primary)" />
     </SelectPrimitive.ItemIndicator>
   </SelectPrimitive.Item>
 ));

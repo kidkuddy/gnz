@@ -62,6 +62,26 @@ export const claudeApi = {
     apiGet<HistoryMessage[]>(`workspaces/${ws}/claude/sessions/${id}/history`),
 };
 
+// Files API
+export interface FileEntry {
+  path: string;
+  name: string;
+  size: number;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  size: number;
+}
+
+export const filesApi = {
+  search: (ws: string, query: string) =>
+    apiGet<FileEntry[]>(`workspaces/${ws}/files/search?q=${encodeURIComponent(query)}`),
+  read: (ws: string, path: string) =>
+    apiGet<FileContent>(`workspaces/${ws}/files/read?path=${encodeURIComponent(path)}`),
+};
+
 export async function getBackendPort(): Promise<number> {
   return invoke<number>('get_backend_port');
 }

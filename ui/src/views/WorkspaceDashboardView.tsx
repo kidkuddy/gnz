@@ -1,5 +1,4 @@
 import { Database, Terminal, FolderOpen } from 'lucide-react';
-import { Badge } from '../components/ui/Badge';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { useConnectionStore } from '../modules/database/stores/connection-store';
 
@@ -19,7 +18,7 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   fontSize: '20px',
-  fontWeight: 600,
+  fontWeight: 500,
   color: 'var(--text-primary)',
   marginBottom: 'var(--space-1)',
 };
@@ -43,23 +42,22 @@ const statCardStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 'var(--space-2)',
   padding: 'var(--space-5)',
-  background: 'var(--bg-surface)',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-lg)',
+  background: 'var(--bg-elevated)',
+  borderRadius: 'var(--radius-md)',
 };
 
 const statValueStyle: React.CSSProperties = {
   fontSize: '24px',
-  fontWeight: 700,
+  fontWeight: 600,
   fontFamily: 'var(--font-mono)',
   color: 'var(--text-primary)',
 };
 
 const statLabelStyle: React.CSSProperties = {
   fontSize: '11px',
-  fontWeight: 500,
+  fontWeight: 400,
   textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+  letterSpacing: '0.08em',
   color: 'var(--text-tertiary)',
 };
 
@@ -75,7 +73,7 @@ export function WorkspaceDashboardView() {
         <div style={titleStyle}>
           <FolderOpen
             size={20}
-            color="var(--accent-text)"
+            color="var(--text-tertiary)"
             style={{ verticalAlign: 'middle', marginRight: 'var(--space-2)' }}
           />
           {activeWorkspace.name}
@@ -87,19 +85,17 @@ export function WorkspaceDashboardView() {
 
       <div style={statsGridStyle}>
         <div style={statCardStyle}>
-          <Database size={20} color="var(--accent-text)" />
+          <Database size={20} color="var(--text-tertiary)" />
           <div style={statValueStyle}>{connections.length}</div>
           <div style={statLabelStyle}>Connections</div>
         </div>
         <div style={statCardStyle}>
-          <Terminal size={20} color="var(--accent-text)" />
+          <Terminal size={20} color="var(--text-tertiary)" />
           <div style={statValueStyle}>0</div>
           <div style={statLabelStyle}>Queries</div>
         </div>
         <div style={statCardStyle}>
-          <Badge variant="accent" style={{ fontSize: '13px', padding: '2px 10px' }}>
-            Active
-          </Badge>
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Active</span>
           <div style={statLabelStyle}>Status</div>
         </div>
       </div>

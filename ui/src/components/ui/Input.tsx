@@ -12,21 +12,21 @@ const wrapperStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: '12px',
-  fontWeight: 500,
+  fontWeight: 400,
   color: 'var(--text-secondary)',
   letterSpacing: '0.02em',
 };
 
 const baseInputStyle: React.CSSProperties = {
-  height: '32px',
+  height: '30px',
   padding: '0 var(--space-3)',
-  background: 'var(--bg-surface)',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-md)',
+  background: 'var(--bg-elevated)',
+  border: 'none',
+  borderRadius: 'var(--radius-sm)',
   color: 'var(--text-primary)',
   fontSize: '13px',
   fontFamily: 'var(--font-sans)',
-  transition: 'border-color 120ms ease',
+  transition: 'background 100ms ease',
   outline: 'none',
   width: '100%',
 };
@@ -36,7 +36,7 @@ export function Input({ label, style, ...props }: InputProps) {
 
   const inputStyle: React.CSSProperties = {
     ...baseInputStyle,
-    borderColor: focused ? 'var(--accent)' : 'var(--border-default)',
+    background: focused ? 'var(--bg-hover)' : 'var(--bg-elevated)',
     ...style,
   };
 
