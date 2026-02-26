@@ -50,6 +50,8 @@ Always use `--release` for all cargo commands:
 | workspace | `internal/workspace/` | Workspace CRUD (model, store, service) |
 | server | `internal/server/` | Chi router, middleware, response helpers |
 | database | `internal/modules/database/` | DB module: connections, pools, queries, tables, MCP tools |
+| claude | `internal/modules/claude/` | Claude Code session management |
+| files | `internal/modules/files/` | File search and read within workspace working directory |
 | mcp | `internal/mcp/` | MCP server setup (SSE transport) |
 
 ### API Base: `http://127.0.0.1:{port}/api/v1`
@@ -62,6 +64,15 @@ Database module routes (under `/workspaces/{ws}`):
 - `/connections/{conn}/tables` — list tables
 - `/connections/{conn}/tables/{name}/rows` — paginated rows
 - `/connections/{conn}/query` — execute SQL
+
+Claude module routes (under `/workspaces/{ws}`):
+- `/claude/sessions` — CRUD
+- `/claude/sessions/{id}/abort` — abort session
+- `/claude/sessions/{id}/history` — get conversation history
+
+Files module routes (under `/workspaces/{ws}`):
+- `/files/search?q=<query>` — search file names (case-insensitive, max 50 results)
+- `/files/read?path=<relative_path>` — read file content (max 1MB, UTF-8 only)
 
 ## React UI
 
@@ -78,13 +89,17 @@ Each module is self-contained in `ui/src/modules/{name}/`:
 - `views/` — full-page views
 - `stores/` — Zustand stores
 
-Current modules: `database`, `settings`
+Current modules: `claude` (default), `database`, `search`
+
+Settings is not a module — it's a modal triggered from a gear icon in the TitleBar.
 
 ### Adding a new module
-1. Create `ui/src/modules/{name}/` with index.ts, components, views, stores
-2. Register in `ui/src/App.tsx` modules array
-3. Add icon to ActivityBar
-4. Add panel content to AppShell
+1. Create `ui/src/modules/{name}/` with `register.ts`, `index.ts`, `components/`, `views/`, `stores/`
+2. In `register.ts`, call `tabRegistry.registerModule()` with id, label, icon, panelComponent, tabDefinitions
+3. Import and call the register function in `ui/src/main.tsx` (registration order = activity bar order)
+
+### Route registration gotcha
+Chi does not allow multiple `r.Route("/workspaces/{ws}", ...)` calls — only the first module can use that pattern. Subsequent modules must register routes flat: `r.Get("/workspaces/{ws}/files/search", h.Search)` instead of nesting inside a `Route` block.
 
 ## Tauri Shell (desktop/)
 
@@ -123,8 +138,12 @@ Near-black backgrounds (#0a0a0b), electric teal accent (#2dd4bf), Geist + JetBra
 2. Add dialect cases in `tables.go` (ListTables, DescribeTable)
 3. Add to `config.SupportedDatabases`
 
+### TitleBar
+- Workspace switcher dropdown: switch workspaces inline, create new workspaces
+- Settings gear icon: opens SettingsView in a modal
+- Switching workspaces clears all open tabs
+
 ### Planned modules
-- **Claude Code sessions**: Session viewer, context inspector, conversation history
-- **Logs**: Streaming log viewer with filtering and search
 - **Terminals**: Managed terminal sessions
+- **Logs**: Streaming log viewer with filtering and search
 - Each module follows the same pattern: backend module (Go) + frontend module (React) + MCP tools. The shell never changes — new modules plug in.
