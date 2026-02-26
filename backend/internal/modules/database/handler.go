@@ -186,11 +186,7 @@ func (h *Handler) GetTableRows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.Success(w, map[string]interface{}{
-		"page":     page,
-		"per_page": perPage,
-		"result":   result,
-	})
+	server.Success(w, result)
 }
 
 func (h *Handler) ExecuteQuery(w http.ResponseWriter, r *http.Request) {

@@ -78,7 +78,12 @@ function MainContent() {
     case 'query-runner':
       return <QueryRunnerView />;
     case 'table-browser':
-      return <ConnectionView tableName={activeTab.data?.tableName as string | undefined} />;
+      return (
+        <ConnectionView
+          tableName={activeTab.data?.tableName as string | undefined}
+          connectionId={activeTab.data?.connectionId as string | undefined}
+        />
+      );
     case 'settings':
       return <SettingsView />;
     default:

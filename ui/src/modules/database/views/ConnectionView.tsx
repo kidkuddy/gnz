@@ -6,6 +6,7 @@ import { databaseApi, type QueryResult } from '../../../lib/tauri-ipc';
 
 interface ConnectionViewProps {
   tableName?: string;
+  connectionId?: string;
 }
 
 const containerStyle: React.CSSProperties = {
@@ -40,6 +41,7 @@ const emptyStyle: React.CSSProperties = {
   color: 'var(--text-disabled)',
   fontFamily: 'var(--font-mono)',
   fontSize: '13px',
+  background: 'var(--bg-base)',
 };
 
 const errorStyle: React.CSSProperties = {
@@ -47,9 +49,10 @@ const errorStyle: React.CSSProperties = {
   color: 'var(--status-error)',
   fontFamily: 'var(--font-mono)',
   fontSize: '12px',
+  background: 'var(--bg-base)',
 };
 
-export function ConnectionView({ tableName }: ConnectionViewProps) {
+export function ConnectionView({ tableName, connectionId }: ConnectionViewProps) {
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace);
   const activeConnection = useConnectionStore((s) => s.activeConnection);
   const [result, setResult] = React.useState<QueryResult | null>(null);
@@ -57,28 +60,45 @@ export function ConnectionView({ tableName }: ConnectionViewProps) {
   const [error, setError] = React.useState<string | null>(null);
   const [page, setPage] = React.useState(1);
 
+  // Use the connectionId from tab data, fall back to active connection
+  const connId = connectionId || activeConnection?.id;
+
   React.useEffect(() => {
-    if (!activeWorkspace || !activeConnection || !tableName) return;
+    if (!activeWorkspace || !connId || !tableName) return;
     setLoading(true);
     setError(null);
+    setResult(null);
     databaseApi
-      .getRows(activeWorkspace.id, activeConnection.id, tableName, page, 50)
+      .getRows(activeWorkspace.id, connId, tableName, page, 50)
       .then((r) => {
         setResult(r);
-        setLoading(false);
       })
       .catch((err) => {
         setError(String(err));
+      })
+      .finally(() => {
         setLoading(false);
       });
-  }, [activeWorkspace, activeConnection, tableName, page]);
+  }, [activeWorkspace, connId, tableName, page]);
 
-  if (!activeConnection) {
+  if (!connId) {
     return <div style={emptyStyle}>Select a connection</div>;
   }
 
   if (!tableName) {
     return <div style={emptyStyle}>Select a table to browse</div>;
+  }
+
+  if (loading && !result) {
+    return (
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <span style={tableNameStyle}>{tableName}</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Loading...</span>
+        </div>
+        <div style={emptyStyle}>Loading rows...</div>
+      </div>
+    );
   }
 
   return (
@@ -99,6 +119,9 @@ export function ConnectionView({ tableName }: ConnectionViewProps) {
             totalPages={Math.ceil(result.row_count / 50)}
           />
         </div>
+      )}
+      {!result && !error && !loading && (
+        <div style={emptyStyle}>No data</div>
       )}
     </div>
   );

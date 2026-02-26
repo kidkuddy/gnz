@@ -9,10 +9,10 @@ import (
 )
 
 type QueryResult struct {
-	Columns  []string        `json:"columns"`
-	Rows     [][]interface{} `json:"rows"`
-	RowCount int             `json:"row_count"`
-	Duration time.Duration   `json:"duration_ms"`
+	Columns    []string        `json:"columns"`
+	Rows       [][]interface{} `json:"rows"`
+	RowCount   int             `json:"row_count"`
+	DurationMs float64         `json:"duration_ms"`
 }
 
 func Execute(db *sql.DB, query string, args ...interface{}) (*QueryResult, error) {
@@ -58,10 +58,10 @@ func Execute(db *sql.DB, query string, args ...interface{}) (*QueryResult, error
 	}
 
 	return &QueryResult{
-		Columns:  cols,
-		Rows:     resultRows,
-		RowCount: len(resultRows),
-		Duration: time.Since(start),
+		Columns:    cols,
+		Rows:       resultRows,
+		RowCount:   len(resultRows),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 	}, nil
 }
 

@@ -72,6 +72,7 @@ function ActivityBarItem({ icon: Icon, label, isActive, onClick }: ActivityBarIt
     background: 'var(--accent)',
     opacity: isActive ? 1 : 0,
     transition: 'opacity 120ms ease',
+    pointerEvents: 'none',
   };
 
   return (
