@@ -1,0 +1,15 @@
+{
+  "name": "gnz",
+  "private": true,
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "build": "make build",
+    "ui:dev": "pnpm --filter ui dev",
+    "ui:build": "pnpm --filter ui build",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.0"
+  }
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+target/
+*.log
+.DS_Store
+*.swp
+*.swo
+
+# Go
+backend/gnz-backend
+
+# Tauri sidecar binaries (built artifacts)
+desktop/binaries/gnz-backend-*
+
+# Environment
+.env
+.env.local
+
+
+.claude
