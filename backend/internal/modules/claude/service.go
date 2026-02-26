@@ -31,7 +31,7 @@ func NewService(store *Store) *Service {
 	return &Service{store: store}
 }
 
-func (s *Service) Create(workspaceID, name, workingDir, model string) (*Session, error) {
+func (s *Service) Create(workspaceID, name, workingDir, model, permissionMode string) (*Session, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = "New Session"
@@ -47,6 +47,9 @@ func (s *Service) Create(workspaceID, name, workingDir, model string) (*Session,
 	if model == "" {
 		model = "claude-sonnet-4-6"
 	}
+	if permissionMode == "" || !ValidPermissionModes[permissionMode] {
+		permissionMode = "acceptEdits"
+	}
 
 	now := time.Now().UTC()
 	sess := &Session{
@@ -55,6 +58,7 @@ func (s *Service) Create(workspaceID, name, workingDir, model string) (*Session,
 		Name:             name,
 		WorkingDirectory: workingDir,
 		Model:            model,
+		PermissionMode:   permissionMode,
 		Status:           StatusIdle,
 		CreatedAt:        now,
 		UpdatedAt:        now,
@@ -74,7 +78,7 @@ func (s *Service) ListByWorkspace(workspaceID string) ([]Session, error) {
 	return s.store.ListByWorkspace(workspaceID)
 }
 
-func (s *Service) Update(id, name, model string) (*Session, error) {
+func (s *Service) Update(id, name, model, permissionMode string) (*Session, error) {
 	sess, err := s.store.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -88,6 +92,9 @@ func (s *Service) Update(id, name, model string) (*Session, error) {
 	}
 	if model != "" {
 		sess.Model = model
+	}
+	if permissionMode != "" && ValidPermissionModes[permissionMode] {
+		sess.PermissionMode = permissionMode
 	}
 
 	if err := s.store.Update(sess); err != nil {

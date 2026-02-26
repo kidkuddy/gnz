@@ -59,12 +59,17 @@ func (m *Manager) SendMessage(sess *Session, text string) (<-chan string, error)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	permMode := sess.PermissionMode
+	if permMode == "" || !ValidPermissionModes[permMode] {
+		permMode = "acceptEdits"
+	}
+
 	args := []string{
 		"-p", text,
 		"--output-format", "stream-json",
 		"--verbose",
 		"--model", sess.Model,
-		"--yes",
+		"--permission-mode", permMode,
 	}
 
 	// Resume existing claude session if we have one

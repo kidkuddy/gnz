@@ -27,13 +27,14 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		Name             string `json:"name"`
 		WorkingDirectory string `json:"working_directory"`
 		Model            string `json:"model"`
+		PermissionMode   string `json:"permission_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		server.BadRequest(w, "invalid request body")
 		return
 	}
 
-	sess, err := h.svc.Create(wsID, body.Name, body.WorkingDirectory, body.Model)
+	sess, err := h.svc.Create(wsID, body.Name, body.WorkingDirectory, body.Model, body.PermissionMode)
 	if err != nil {
 		server.BadRequest(w, err.Error())
 		return
@@ -87,15 +88,16 @@ func (h *Handler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	var body struct {
-		Name  string `json:"name"`
-		Model string `json:"model"`
+		Name           string `json:"name"`
+		Model          string `json:"model"`
+		PermissionMode string `json:"permission_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		server.BadRequest(w, "invalid request body")
 		return
 	}
 
-	sess, err := h.svc.Update(id, body.Name, body.Model)
+	sess, err := h.svc.Update(id, body.Name, body.Model, body.PermissionMode)
 	if err != nil {
 		server.BadRequest(w, err.Error())
 		return

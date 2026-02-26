@@ -9,9 +9,18 @@ type Session struct {
 	ClaudeSessionID  string    `json:"claude_session_id,omitempty"`
 	WorkingDirectory string    `json:"working_directory"`
 	Model            string    `json:"model"`
+	PermissionMode   string    `json:"permission_mode"`
 	Status           string    `json:"status"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+var ValidPermissionModes = map[string]bool{
+	"default":           true,
+	"acceptEdits":       true,
+	"bypassPermissions": true,
+	"plan":              true,
+	"dontAsk":           true,
 }
 
 const (

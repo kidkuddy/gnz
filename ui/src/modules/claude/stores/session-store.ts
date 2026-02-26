@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { claudeApi, getBackendPort, type ClaudeSession, type HistoryMessage } from '../../../lib/tauri-ipc';
+import { claudeApi, getBackendPort, type ClaudeSession, type HistoryMessage, type PermissionMode } from '../../../lib/tauri-ipc';
 
 export type MessageRole = 'user' | 'assistant';
 
@@ -36,9 +36,10 @@ interface SessionStore {
 
   // CRUD
   loadSessions: (workspaceId: string) => Promise<void>;
-  createSession: (workspaceId: string, name?: string, workingDirectory?: string) => Promise<ClaudeSession>;
+  createSession: (workspaceId: string, name?: string, workingDirectory?: string, permissionMode?: PermissionMode) => Promise<ClaudeSession>;
   deleteSession: (workspaceId: string, id: string) => Promise<void>;
   renameSession: (workspaceId: string, id: string, name: string) => Promise<void>;
+  updatePermissionMode: (workspaceId: string, id: string, permissionMode: PermissionMode) => Promise<void>;
   setActiveSession: (id: string | null) => void;
 
   // History
@@ -111,10 +112,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  createSession: async (workspaceId, name, workingDirectory) => {
+  createSession: async (workspaceId, name, workingDirectory, permissionMode) => {
     const sess = await claudeApi.createSession(workspaceId, {
       name,
       working_directory: workingDirectory || '/',
+      permission_mode: permissionMode,
     });
     set((s) => ({ sessions: [sess, ...s.sessions] }));
     return sess;
@@ -143,6 +145,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   renameSession: async (workspaceId, id, name) => {
     const sess = await claudeApi.updateSession(workspaceId, id, { name });
+    set((s) => ({
+      sessions: s.sessions.map((existing) => (existing.id === id ? sess : existing)),
+    }));
+  },
+
+  updatePermissionMode: async (workspaceId, id, permissionMode) => {
+    const sess = await claudeApi.updateSession(workspaceId, id, { permission_mode: permissionMode });
     set((s) => ({
       sessions: s.sessions.map((existing) => (existing.id === id ? sess : existing)),
     }));

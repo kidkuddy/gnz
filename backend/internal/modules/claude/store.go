@@ -16,9 +16,9 @@ func NewStore(db *sql.DB) *Store {
 
 func (s *Store) Create(sess *Session) error {
 	_, err := s.db.Exec(
-		`INSERT INTO claude_sessions (id, workspace_id, name, claude_session_id, working_directory, model, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sess.ID, sess.WorkspaceID, sess.Name, sess.ClaudeSessionID, sess.WorkingDirectory, sess.Model, sess.Status, sess.CreatedAt, sess.UpdatedAt,
+		`INSERT INTO claude_sessions (id, workspace_id, name, claude_session_id, working_directory, model, permission_mode, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sess.ID, sess.WorkspaceID, sess.Name, sess.ClaudeSessionID, sess.WorkingDirectory, sess.Model, sess.PermissionMode, sess.Status, sess.CreatedAt, sess.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting claude session: %w", err)
@@ -30,9 +30,9 @@ func (s *Store) GetByID(id string) (*Session, error) {
 	sess := &Session{}
 	var claudeSessionID sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, workspace_id, name, claude_session_id, working_directory, model, status, created_at, updated_at
+		`SELECT id, workspace_id, name, claude_session_id, working_directory, model, permission_mode, status, created_at, updated_at
 		 FROM claude_sessions WHERE id = ?`, id,
-	).Scan(&sess.ID, &sess.WorkspaceID, &sess.Name, &claudeSessionID, &sess.WorkingDirectory, &sess.Model, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt)
+	).Scan(&sess.ID, &sess.WorkspaceID, &sess.Name, &claudeSessionID, &sess.WorkingDirectory, &sess.Model, &sess.PermissionMode, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -47,7 +47,7 @@ func (s *Store) GetByID(id string) (*Session, error) {
 
 func (s *Store) ListByWorkspace(workspaceID string) ([]Session, error) {
 	rows, err := s.db.Query(
-		`SELECT id, workspace_id, name, claude_session_id, working_directory, model, status, created_at, updated_at
+		`SELECT id, workspace_id, name, claude_session_id, working_directory, model, permission_mode, status, created_at, updated_at
 		 FROM claude_sessions WHERE workspace_id = ? ORDER BY created_at DESC`, workspaceID,
 	)
 	if err != nil {
@@ -59,7 +59,7 @@ func (s *Store) ListByWorkspace(workspaceID string) ([]Session, error) {
 	for rows.Next() {
 		var sess Session
 		var claudeSessionID sql.NullString
-		if err := rows.Scan(&sess.ID, &sess.WorkspaceID, &sess.Name, &claudeSessionID, &sess.WorkingDirectory, &sess.Model, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt); err != nil {
+		if err := rows.Scan(&sess.ID, &sess.WorkspaceID, &sess.Name, &claudeSessionID, &sess.WorkingDirectory, &sess.Model, &sess.PermissionMode, &sess.Status, &sess.CreatedAt, &sess.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning claude session: %w", err)
 		}
 		if claudeSessionID.Valid {
@@ -73,9 +73,9 @@ func (s *Store) ListByWorkspace(workspaceID string) ([]Session, error) {
 func (s *Store) Update(sess *Session) error {
 	sess.UpdatedAt = time.Now().UTC()
 	result, err := s.db.Exec(
-		`UPDATE claude_sessions SET name = ?, claude_session_id = ?, working_directory = ?, model = ?, status = ?, updated_at = ?
+		`UPDATE claude_sessions SET name = ?, claude_session_id = ?, working_directory = ?, model = ?, permission_mode = ?, status = ?, updated_at = ?
 		 WHERE id = ?`,
-		sess.Name, sess.ClaudeSessionID, sess.WorkingDirectory, sess.Model, sess.Status, sess.UpdatedAt, sess.ID,
+		sess.Name, sess.ClaudeSessionID, sess.WorkingDirectory, sess.Model, sess.PermissionMode, sess.Status, sess.UpdatedAt, sess.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("updating claude session %s: %w", sess.ID, err)

@@ -146,6 +146,8 @@ export interface QueryResult {
   duration_ms: number;
 }
 
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk';
+
 export interface ClaudeSession {
   id: string;
   workspace_id: string;
@@ -153,6 +155,7 @@ export interface ClaudeSession {
   claude_session_id?: string;
   working_directory: string;
   model: string;
+  permission_mode: PermissionMode;
   status: 'idle' | 'running' | 'error';
   created_at: string;
   updated_at: string;
@@ -162,11 +165,13 @@ export interface CreateClaudeSessionInput {
   name?: string;
   working_directory: string;
   model?: string;
+  permission_mode?: PermissionMode;
 }
 
 export interface UpdateClaudeSessionInput {
   name?: string;
   model?: string;
+  permission_mode?: PermissionMode;
 }
 
 export interface AppConfig {
