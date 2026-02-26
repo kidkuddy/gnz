@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 )
 
@@ -26,12 +27,14 @@ type Manager struct {
 	mu        sync.RWMutex
 	processes map[string]*RunningProcess
 	svc       *Service
+	port      int // backend HTTP port, used to build MCP config for Claude sessions
 }
 
-func NewManager(svc *Service) *Manager {
+func NewManager(svc *Service, port int) *Manager {
 	return &Manager{
 		processes: make(map[string]*RunningProcess),
 		svc:       svc,
+		port:      port,
 	}
 }
 
@@ -115,6 +118,19 @@ func (m *Manager) spawnProcess(sess *Session, text string) (<-chan string, error
 	// Only add -p if there's initial text (fire-and-go mode)
 	if text != "" {
 		args = append(args, "-p", text)
+	}
+
+	// Provide gnz MCP server to the Claude session
+	var mcpConfigPath string
+	if m.port > 0 {
+		mcpConfigPath = filepath.Join(os.TempDir(), fmt.Sprintf("gnz-mcp-%s.json", sess.ID))
+		mcpConfig := fmt.Sprintf(`{"mcpServers":{"gnz-devtools":{"type":"http","url":"http://127.0.0.1:%d/mcp"}}}`, m.port)
+		if err := os.WriteFile(mcpConfigPath, []byte(mcpConfig), 0644); err != nil {
+			log.Printf("[claude:%s] WARNING: failed to write MCP config: %v", sess.ID[:8], err)
+			mcpConfigPath = ""
+		} else {
+			args = append(args, "--mcp-config", mcpConfigPath)
+		}
 	}
 
 	// Resume existing claude session if we have one
@@ -215,6 +231,11 @@ func (m *Manager) spawnProcess(sess *Session, text string) (<-chan string, error
 			log.Printf("[claude:%s] process exited with error: %v", sess.ID[:8], exitErr)
 		} else {
 			log.Printf("[claude:%s] process exited cleanly (lines read: %d)", sess.ID[:8], lineCount)
+		}
+
+		// Remove temp MCP config
+		if mcpConfigPath != "" {
+			_ = os.Remove(mcpConfigPath)
 		}
 
 		// Cleanup

@@ -71,7 +71,7 @@ func main() {
 	if cfg.Features.Claude {
 		claudeStore := claude.NewStore(db)
 		claudeSvc := claude.NewService(claudeStore)
-		claudeMgr = claude.NewManager(claudeSvc)
+		claudeMgr = claude.NewManager(claudeSvc, cfg.Port)
 
 		srv.RegisterModuleRoutes(func(r chi.Router) {
 			claude.Register(r, claudeSvc, claudeMgr)
