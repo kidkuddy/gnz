@@ -124,7 +124,7 @@ func (m *Manager) spawnProcess(sess *Session, text string) (<-chan string, error
 	var mcpConfigPath string
 	if m.port > 0 {
 		mcpConfigPath = filepath.Join(os.TempDir(), fmt.Sprintf("gnz-mcp-%s.json", sess.ID))
-		mcpConfig := fmt.Sprintf(`{"mcpServers":{"gnz-devtools":{"type":"http","url":"http://127.0.0.1:%d/mcp"}}}`, m.port)
+		mcpConfig := fmt.Sprintf(`{"mcpServers":{"gnz-devtools":{"type":"sse","url":"http://127.0.0.1:%d/mcp/sse"}}}`, m.port)
 		if err := os.WriteFile(mcpConfigPath, []byte(mcpConfig), 0644); err != nil {
 			log.Printf("[claude:%s] WARNING: failed to write MCP config: %v", sess.ID[:8], err)
 			mcpConfigPath = ""
