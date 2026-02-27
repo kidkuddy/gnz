@@ -726,10 +726,14 @@ function handleStreamEvent(
       const tracker = turnTracker[sessionId];
       if (tracker && msgId && tracker.lastMsgId === msgId) {
         // Same turn — replace content from turnStart index onwards (cumulative within turn)
-        // Preserve any injected blocks (permission_request, tool_result) that were added
-        // between assistant events by control_request/user event handlers
+        // Preserve injected blocks (permission_request, tool_result) and thinking blocks
+        // that may not be re-emitted in subsequent cumulative assistant events
+        const hasNewThinking = parsed.some((p) => p.type === 'thinking');
         const preservedBlocks = updatedMsg.content.slice(tracker.turnStart).filter(
-          (c) => c.type === 'permission_request' || c.type === 'tool_result'
+          (c) =>
+            c.type === 'permission_request' ||
+            c.type === 'tool_result' ||
+            (c.type === 'thinking' && !hasNewThinking)
         );
         updatedMsg.content = [
           ...updatedMsg.content.slice(0, tracker.turnStart),
