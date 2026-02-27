@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>gnz — the IDE you can't see code in</title>
+  <meta name="description" content="gnz is how GenZ codes. An IDE where you never touch code. AI agents code. You think.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0a0a0b;
+      --bg-raised: #111113;
+      --bg-card: #151517;
+      --teal: #2dd4bf;
+      --teal-dim: #2dd4bf22;
+      --teal-mid: #2dd4bf55;
+      --teal-glow: #2dd4bf33;
+      --text: #e4e4e7;
+      --text-dim: #71717a;
+      --text-muted: #52525b;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'Space Grotesk', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--bg);
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background: var(--teal);
+      color: var(--bg);
+    }
+
+    /* ---- NOISE OVERLAY ---- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ---- NAV ---- */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(10, 10, 11, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid #ffffff08;
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--teal);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-logo span {
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 13px;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--teal);
+    }
+
+    .nav-cta {
+      font-family: var(--font-mono) !important;
+      font-size: 13px !important;
+      color: var(--bg) !important;
+      background: var(--teal);
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .nav-cta:hover {
+      background: #5eead4 !important;
+      transform: translateY(-1px);
+    }
+
+    /* ---- HERO ---- */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 140px 40px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(45, 212, 191, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(45, 212, 191, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black, transparent);
+    }
+
+    .hero-glow {
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, var(--teal-glow), transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      max-width: 900px;
+    }
+
+    .hero-tag {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--teal);
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.2s;
+    }
+
+    .hero-tag::before {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 1px;
+      background: var(--teal);
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(52px, 8vw, 100px);
+      font-weight: 800;
+      line-height: 0.95;
+      letter-spacing: -3px;
+      margin-bottom: 32px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.4s;
+    }
+
+    .hero h1 .strike {
+      text-decoration: line-through;
+      color: var(--text-muted);
+      text-decoration-color: var(--red);
+      text-decoration-thickness: 3px;
+    }
+
+    .hero h1 .teal {
+      color: var(--teal);
+    }
+
+    .hero-sub {
+      font-size: 20px;
+      line-height: 1.6;
+      color: var(--text-dim);
+      max-width: 540px;
+      margin-bottom: 48px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.6s;
+    }
+
+    .hero-sub strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.8s;
+    }
+
+    .btn-primary {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--bg);
+      background: var(--teal);
+      border: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      background: #5eead4;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px var(--teal-glow);
+    }
+
+    .btn-secondary {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      background: transparent;
+      border: 1px solid #ffffff15;
+      padding: 14px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--teal-mid);
+      color: var(--teal);
+    }
+
+    /* ---- MANIFESTO ---- */
+    .manifesto {
+      padding: 120px 40px;
+      position: relative;
+    }
+
+    .manifesto-inner {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .manifesto blockquote {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      border-left: 3px solid var(--teal);
+      padding-left: 32px;
+      margin-bottom: 32px;
+    }
+
+    .manifesto p {
+      font-size: 17px;
+      line-height: 1.8;
+      color: var(--text-dim);
+      padding-left: 35px;
+      max-width: 600px;
+    }
+
+    .manifesto p strong {
+      color: var(--text);
+    }
+
+    /* ---- FEATURES ---- */
+    .features {
+      padding: 80px 40px 120px;
+    }
+
+    .features-header {
+      text-align: center;
+      margin-bottom: 72px;
+    }
+
+    .features-header h2 {
+      font-family: var(--font-display);
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin-bottom: 16px;
+    }
+
+    .features-header p {
+      font-size: 17px;
+      color: var(--text-dim);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid #ffffff08;
+      border-radius: 12px;
+      padding: 36px 32px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--teal-mid), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: #ffffff15;
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 20px;
+      display: block;
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--teal-dim);
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      color: var(--teal);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .feature-card h3 {
+      font-family: var(--font-body);
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: -0.3px;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-dim);
+    }
+
+    .feature-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--teal);
+      background: var(--teal-dim);
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-top: 16px;
+    }
+
+    /* ---- MCP SECTION ---- */
+    .mcp {
+      padding: 120px 40px;
+      background: var(--bg-raised);
+      border-top: 1px solid #ffffff06;
+      border-bottom: 1px solid #ffffff06;
+    }
+
+    .mcp-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .mcp-text h2 {
+      font-family: var(--font-display);
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin-bottom: 24px;
+      line-height: 1.1;
+    }
+
+    .mcp-text h2 .teal { color: var(--teal); }
+
+    .mcp-text p {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .mcp-visual {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mcp-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .mcp-node {
+      padding: 12px 20px;
+      background: var(--bg-card);
+      border: 1px solid #ffffff0a;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .mcp-node.agent {
+      border-color: var(--teal-mid);
+      color: var(--teal);
+    }
+
+    .mcp-node.human {
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+
+    .mcp-arrow {
+      color: var(--text-muted);
+      font-size: 18px;
+    }
+
+    .mcp-node.tool {
+      border-color: #ffffff15;
+      color: var(--text);
+      flex: 1;
+    }
+
+    /* ---- ANTI-SECTION ---- */
+    .anti {
+      padding: 120px 40px;
+    }
+
+    .anti-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .anti h2 {
+      font-family: var(--font-display);
+      font-size: clamp(32px, 4vw, 48px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin-bottom: 48px;
+    }
+
+    .anti-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      text-align: left;
+    }
+
+    .anti-col h3 {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #ffffff10;
+    }
+
+    .anti-col.old h3 {
+      color: var(--red);
+    }
+
+    .anti-col.new h3 {
+      color: var(--teal);
+    }
+
+    .anti-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .anti-col li {
+      font-size: 15px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.5;
+    }
+
+    .anti-col.old li::before {
+      content: '×';
+      color: var(--red);
+      font-weight: 700;
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    .anti-col.new li::before {
+      content: '→';
+      color: var(--teal);
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    /* ---- STACK ---- */
+    .stack {
+      padding: 80px 40px 120px;
+    }
+
+    .stack-inner {
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .stack h2 {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 40px;
+    }
+
+    .stack-badges {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .stack-badge {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 10px 20px;
+      background: var(--bg-card);
+      border: 1px solid #ffffff0a;
+      border-radius: 8px;
+      color: var(--text-dim);
+      transition: all 0.2s;
+    }
+
+    .stack-badge:hover {
+      border-color: var(--teal-mid);
+      color: var(--teal);
+    }
+
+    /* ---- CTA ---- */
+    .cta {
+      padding: 120px 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    .cta-glow {
+      position: absolute;
+      bottom: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse, var(--teal-glow), transparent 70%);
+      filter: blur(100px);
+      pointer-events: none;
+    }
+
+    .cta-content {
+      position: relative;
+    }
+
+    .cta h2 {
+      font-family: var(--font-display);
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 800;
+      letter-spacing: -3px;
+      margin-bottom: 20px;
+      line-height: 1;
+    }
+
+    .cta p {
+      font-size: 17px;
+      color: var(--text-dim);
+      margin-bottom: 40px;
+    }
+
+    .cta p .teal { color: var(--teal); }
+
+    /* ---- FOOTER ---- */
+    footer {
+      padding: 40px;
+      border-top: 1px solid #ffffff06;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer span {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: var(--teal);
+    }
+
+    /* ---- ANIMATIONS ---- */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* ---- SCROLL ANIMATIONS ---- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 900px) {
+      .mcp-inner {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+
+      .anti-grid {
+        grid-template-columns: 1fr;
+      }
+
+      nav {
+        padding: 16px 20px;
+      }
+
+      .nav-links a:not(.nav-cta) {
+        display: none;
+      }
+
+      .hero, .manifesto, .features, .mcp, .anti, .stack, .cta {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">gnz<span>v0.1</span></a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#mcp">MCP</a>
+      <a href="#stack">Stack</a>
+      <a href="https://github.com/nicholasgriffintn/gnz" class="nav-cta">Download</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid"></div>
+    <div class="hero-glow"></div>
+
+    <div class="hero-content">
+      <div class="hero-tag">how genz codes</div>
+      <h1>
+        The IDE<br>
+        with <span class="strike">no code</span><br>
+        <span class="teal">in sight.</span>
+      </h1>
+      <p class="hero-sub">
+        Stop staring at syntax. <strong>AI agents write the code.</strong>
+        You manage databases, orchestrate terminals, watch logs,
+        and think — all from one window.
+      </p>
+      <div class="hero-actions">
+        <a href="#" class="btn-primary">Download gnz ↓</a>
+        <a href="#features" class="btn-secondary">See what's inside</a>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- MANIFESTO -->
+  <section class="manifesto">
+    <div class="manifesto-inner reveal">
+      <blockquote>
+        "Why are you still reading<br>
+        other people's code?"
+      </blockquote>
+      <p>
+        Legacy IDEs were built for a world where humans typed every line.
+        That world is over. <strong>gnz is the operator's desktop</strong> —
+        modules for everything you actually do, zero lines of code on screen.
+      </p>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="features-header reveal">
+      <h2>Everything you need.<br>Nothing you don't.</h2>
+      <p>Every module is a UI panel and an MCP tool. Humans and agents get the same power.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">AI</div>
+        <h3>Claude Sessions</h3>
+        <p>Integrated AI agent sessions. Give instructions, watch them execute. Full conversation history and multi-session support.</p>
+        <span class="feature-tag">default module</span>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">DB</div>
+        <h3>Database Manager</h3>
+        <p>Connect to Postgres, MySQL, SQLite. Browse tables, run queries, manage connections — without opening pgAdmin ever again.</p>
+        <span class="feature-tag">sql editor</span>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">&gt;_</div>
+        <h3>Terminal</h3>
+        <p>Managed terminal sessions with full PTY support. No more juggling twenty tabs in iTerm.</p>
+        <span class="feature-tag">xterm.js</span>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">&#x2197;</div>
+        <h3>Actions</h3>
+        <p>Define and run custom workflows. Git operations, deployments, scripts — one click or one MCP call.</p>
+        <span class="feature-tag">automations</span>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">&#x26A0;</div>
+        <h3>Logs</h3>
+        <p>Streaming log viewer with filtering and real-time search. See what's happening without tailing files manually.</p>
+        <span class="feature-tag">shipped</span>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">&#x2B1A;</div>
+        <h3>Workspaces</h3>
+        <p>Isolated environments per project. Each workspace has its own connections, sessions, terminals, and settings.</p>
+        <span class="feature-tag">core</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MCP -->
+  <section class="mcp" id="mcp">
+    <div class="mcp-inner">
+      <div class="mcp-text reveal">
+        <h2>MCP-first.<br><span class="teal">Agents included.</span></h2>
+        <p>
+          Every capability in gnz is exposed as an MCP tool. That means AI agents
+          get the exact same access as you — query databases, manage terminals,
+          search files, run actions.
+        </p>
+        <p>
+          Your agent doesn't need special integrations. It just connects to gnz
+          and gets to work.
+        </p>
+      </div>
+
+      <div class="mcp-visual reveal">
+        <div class="mcp-row">
+          <div class="mcp-node human">You</div>
+          <span class="mcp-arrow">→</span>
+          <div class="mcp-node tool">UI Panel</div>
+          <span class="mcp-arrow">→</span>
+          <div class="mcp-node">Database</div>
+        </div>
+        <div style="text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); padding: 8px 0;">same interface</div>
+        <div class="mcp-row">
+          <div class="mcp-node agent">Agent</div>
+          <span class="mcp-arrow">→</span>
+          <div class="mcp-node tool">MCP Tool</div>
+          <span class="mcp-arrow">→</span>
+          <div class="mcp-node">Database</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ANTI -->
+  <section class="anti">
+    <div class="anti-inner reveal">
+      <h2>Different by design.</h2>
+      <div class="anti-grid">
+        <div class="anti-col old">
+          <h3>Legacy IDEs</h3>
+          <ul>
+            <li>Built around a text editor</li>
+            <li>Extensions for everything</li>
+            <li>AI bolted on as an afterthought</li>
+            <li>One tool, twenty browser tabs</li>
+            <li>Config files for config files</li>
+          </ul>
+        </div>
+        <div class="anti-col new">
+          <h3>gnz</h3>
+          <ul>
+            <li>Built around the operator</li>
+            <li>Modules that just work</li>
+            <li>AI-native from line zero</li>
+            <li>One window, everything inside</li>
+            <li>Workspaces that remember your setup</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section class="stack" id="stack">
+    <div class="stack-inner reveal">
+      <h2>Built with conviction.</h2>
+      <div class="stack-badges">
+        <div class="stack-badge">Tauri 2</div>
+        <div class="stack-badge">Rust</div>
+        <div class="stack-badge">React</div>
+        <div class="stack-badge">TypeScript</div>
+        <div class="stack-badge">Go</div>
+        <div class="stack-badge">SQLite</div>
+        <div class="stack-badge">MCP</div>
+        <div class="stack-badge">xterm.js</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="cta-glow"></div>
+    <div class="cta-content reveal">
+      <h2>Stop typing.<br>Start operating.</h2>
+      <p>macOS first. <span class="teal">Free and open source.</span></p>
+      <a href="#" class="btn-primary">Download gnz ↓</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span>gnz — how genz codes</span>
+    <a href="https://github.com/nicholasgriffintn/gnz">GitHub</a>
+  </footer>
+
+  <script>
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
