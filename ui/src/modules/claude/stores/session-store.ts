@@ -726,9 +726,15 @@ function handleStreamEvent(
       const tracker = turnTracker[sessionId];
       if (tracker && msgId && tracker.lastMsgId === msgId) {
         // Same turn — replace content from turnStart index onwards (cumulative within turn)
+        // Preserve any injected blocks (permission_request, tool_result) that were added
+        // between assistant events by control_request/user event handlers
+        const preservedBlocks = updatedMsg.content.slice(tracker.turnStart).filter(
+          (c) => c.type === 'permission_request' || c.type === 'tool_result'
+        );
         updatedMsg.content = [
           ...updatedMsg.content.slice(0, tracker.turnStart),
           ...parsed,
+          ...preservedBlocks,
         ];
       } else {
         // New turn — append after previous turns' content

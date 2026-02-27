@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -79,12 +81,13 @@ func (m *Manager) spawnProcess(sess *Session, text string) (<-chan string, error
 		return nil, fmt.Errorf("session %s already has a running process", sess.ID)
 	}
 
-	// Resolve claude binary path
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
+	// Resolve claude binary path — macOS .app bundles have a minimal PATH,
+	// so we check common install locations before falling back to LookPath.
+	claudePath := resolveClaudeBinary()
+	if claudePath == "" {
 		m.mu.Unlock()
-		log.Printf("[claude:%s] ERROR: claude binary not found in PATH: %v", sess.ID[:8], err)
-		return nil, fmt.Errorf("claude binary not found in PATH: %w", err)
+		log.Printf("[claude:%s] ERROR: claude binary not found", sess.ID[:8])
+		return nil, fmt.Errorf("claude binary not found — install Claude Code CLI or set PATH")
 	}
 	log.Printf("[claude:%s] using binary: %s", sess.ID[:8], claudePath)
 
@@ -299,4 +302,48 @@ func (m *Manager) cleanup(sessionID string) {
 	m.mu.Lock()
 	delete(m.processes, sessionID)
 	m.mu.Unlock()
+}
+
+// resolveClaudeBinary finds the claude CLI binary by checking common install
+// locations first (needed for macOS .app bundles where PATH is minimal),
+// then falling back to exec.LookPath.
+func resolveClaudeBinary() string {
+	home, _ := os.UserHomeDir()
+
+	// Common install locations for claude CLI
+	var candidates []string
+	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+		if home != "" {
+			candidates = append(candidates,
+				filepath.Join(home, ".local", "bin", "claude"),
+				filepath.Join(home, ".npm-global", "bin", "claude"),
+				filepath.Join(home, ".nvm", "current", "bin", "claude"),
+			)
+			// Check nvm versions directory for any node version
+			nvmDir := filepath.Join(home, ".nvm", "versions", "node")
+			if entries, err := os.ReadDir(nvmDir); err == nil {
+				for _, e := range entries {
+					if e.IsDir() && strings.HasPrefix(e.Name(), "v") {
+						candidates = append(candidates, filepath.Join(nvmDir, e.Name(), "bin", "claude"))
+					}
+				}
+			}
+		}
+		candidates = append(candidates,
+			"/usr/local/bin/claude",
+			"/opt/homebrew/bin/claude",
+		)
+	}
+
+	for _, path := range candidates {
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			return path
+		}
+	}
+
+	// Fall back to PATH lookup
+	if p, err := exec.LookPath("claude"); err == nil {
+		return p
+	}
+	return ""
 }
