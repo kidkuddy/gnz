@@ -4,6 +4,7 @@ import { useTabRegistry } from '../../stores/tab-registry';
 interface ActivityBarProps {
   activeModule: string;
   onModuleChange: (moduleId: string) => void;
+  badges?: Record<string, boolean>;
 }
 
 const containerStyle: React.CSSProperties = {
@@ -17,7 +18,7 @@ const containerStyle: React.CSSProperties = {
   width: 'var(--activity-bar-width)',
 };
 
-export function ActivityBar({ activeModule, onModuleChange }: ActivityBarProps) {
+export function ActivityBar({ activeModule, onModuleChange, badges }: ActivityBarProps) {
   const registry = useTabRegistry();
   const modules = registry.getModules();
 
@@ -29,6 +30,7 @@ export function ActivityBar({ activeModule, onModuleChange }: ActivityBarProps) 
           icon={mod.icon}
           label={mod.label}
           isActive={activeModule === mod.id}
+          hasBadge={badges?.[mod.id] ?? false}
           onClick={() => onModuleChange(mod.id)}
         />
       ))}
@@ -40,13 +42,15 @@ interface ActivityBarItemProps {
   icon: React.ComponentType<{ size: number; strokeWidth?: number }>;
   label: string;
   isActive: boolean;
+  hasBadge: boolean;
   onClick: () => void;
 }
 
-function ActivityBarItem({ icon: Icon, label, isActive, onClick }: ActivityBarItemProps) {
+function ActivityBarItem({ icon: Icon, label, isActive, hasBadge, onClick }: ActivityBarItemProps) {
   const [hovered, setHovered] = React.useState(false);
 
   const itemStyle: React.CSSProperties = {
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -58,6 +62,16 @@ function ActivityBarItem({ icon: Icon, label, isActive, onClick }: ActivityBarIt
     transition: 'color 100ms ease',
   };
 
+  const badgeStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '6px',
+    right: '6px',
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    background: 'var(--accent, #2dd4bf)',
+  };
+
   return (
     <button
       style={itemStyle}
@@ -67,6 +81,7 @@ function ActivityBarItem({ icon: Icon, label, isActive, onClick }: ActivityBarIt
       title={label}
     >
       <Icon size={17} strokeWidth={1.5} />
+      {hasBadge && <span style={badgeStyle} />}
     </button>
   );
 }

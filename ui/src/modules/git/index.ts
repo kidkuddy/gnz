@@ -1,0 +1,1 @@
+export { registerGitModule } from './register';

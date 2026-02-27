@@ -16,9 +16,11 @@ import (
 	"github.com/clusterlab-ai/gnz/backend/internal/appdb"
 	"github.com/clusterlab-ai/gnz/backend/internal/config"
 	mcpserver "github.com/clusterlab-ai/gnz/backend/internal/mcp"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/actions"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/claude"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/files"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/git"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/scratchpad"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/terminal"
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
@@ -97,12 +99,26 @@ func main() {
 		terminal.Register(r, termMgr)
 	})
 
+	// Register git module routes
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		git.Register(r, wsSvc)
+	})
+
+	// Initialize actions module
+	actionsStore := actions.NewStore(db)
+	actionsMgr := actions.NewManager(actionsStore, wsSvc)
+	defer actionsMgr.Shutdown()
+
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		actions.Register(r, actionsStore, actionsMgr)
+	})
+
 	// Finalize routes
 	srv.Build()
 
 	// Register MCP server
 	if cfg.Features.MCP {
-		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore)
+		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr)
 		if err != nil {
 			log.Fatalf("creating MCP server: %v", err)
 		}

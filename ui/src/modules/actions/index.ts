@@ -1,0 +1,1 @@
+export { registerActionsModule } from './register';

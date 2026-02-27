@@ -1,3 +1,5 @@
+SHELL := /bin/zsh
+
 # Detect target triple for Tauri sidecar naming
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -27,10 +29,15 @@ setup:
 	cd ui && pnpm install
 	cd backend && go mod tidy
 
-# Build Go backend and place as sidecar
+# Build Go backend and place as sidecar (only if sources changed)
 backend:
-	cd backend && go build -o ../desktop/binaries/$(SIDECAR_NAME) ./cmd/gnz-backend/
-	@echo "Built sidecar: desktop/binaries/$(SIDECAR_NAME)"
+	@NEWEST_SRC=$$(find backend -name '*.go' -newer desktop/binaries/$(SIDECAR_NAME) 2>/dev/null | head -1); \
+	if [ ! -f desktop/binaries/$(SIDECAR_NAME) ] || [ -n "$$NEWEST_SRC" ]; then \
+		cd backend && go build -o ../desktop/binaries/$(SIDECAR_NAME) ./cmd/gnz-backend/; \
+		echo "Built sidecar: desktop/binaries/$(SIDECAR_NAME)"; \
+	else \
+		echo "Sidecar up to date, skipping Go build"; \
+	fi
 
 # Build frontend
 ui:

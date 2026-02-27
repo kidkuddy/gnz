@@ -6,6 +6,7 @@ import { TabBar } from './TabBar';
 import { StatusBar } from './StatusBar';
 import { useTabStore } from '../../stores/tab-store';
 import { useTabRegistry } from '../../stores/tab-registry';
+import { useActionsStore } from '../../modules/actions/stores/actions-store';
 
 const shellStyle: React.CSSProperties = {
   display: 'grid',
@@ -85,10 +86,13 @@ function MainContent() {
 }
 
 export function AppShell({ activeModule, onModuleChange }: AppShellProps) {
+  const hasRunningActions = useActionsStore((s) => s.runningActionIds.size > 0);
+  const badges: Record<string, boolean> = hasRunningActions ? { actions: true } : {};
+
   return (
     <div style={shellStyle}>
       <TitleBar />
-      <ActivityBar activeModule={activeModule} onModuleChange={onModuleChange} />
+      <ActivityBar activeModule={activeModule} onModuleChange={onModuleChange} badges={badges} />
       <Panel>
         <PanelContent activeModule={activeModule} />
       </Panel>

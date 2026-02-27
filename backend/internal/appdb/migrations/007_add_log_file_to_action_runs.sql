@@ -1,0 +1,1 @@
+ALTER TABLE action_runs ADD COLUMN log_file TEXT NOT NULL DEFAULT '';

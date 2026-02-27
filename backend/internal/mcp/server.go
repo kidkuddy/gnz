@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/actions"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
 	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
@@ -17,7 +18,7 @@ type MCPServer struct {
 	sseServer *server.SSEServer
 }
 
-func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *database.ConnectionStore) (*MCPServer, error) {
+func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *database.ConnectionStore, actionsStore *actions.Store, actionsMgr *actions.Manager) (*MCPServer, error) {
 	srv := server.NewMCPServer(
 		"gnz-devtools",
 		"1.0.0",
@@ -39,6 +40,9 @@ func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *databa
 
 	// Register database module MCP tools
 	database.RegisterMCPTools(srv, pool, connStore)
+
+	// Register actions module MCP tools
+	actions.RegisterMCPTools(srv, actionsStore, actionsMgr)
 
 	sseServer := server.NewSSEServer(srv,
 		server.WithBasePath("/mcp"),
