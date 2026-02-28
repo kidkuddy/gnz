@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.2
+
+### Git & Actions Modules
+- New **Git** module: stage/unstage files, commit, view diffs and history — all from a dedicated panel
+- New **Actions** module: define and run shell actions against the workspace, with live streaming output and run history
+- Both modules expose MCP tools so Claude agents can trigger git operations and run actions directly
+
+### Landing Page
+- Added a `web/` landing page for the project
+
+### Fixes
+- **Error boundary**: added "Go to Workspace" button that reloads the webview — no more having to close and relaunch the app after a crash
+- **Empty table crash**: querying a table with no rows returned `null` from Go (nil slice serializes to `null` in JSON), causing a `TypeError` in the DataTable virtualizer; now always returns `[]`
+- **Panel toggle**: clicking the active module icon in the activity bar now collapses/expands the panel (150ms transition). Switching to a different module always re-opens it
+- Fix permission prompt and thinking blocks being wiped when a subsequent cumulative assistant event replaces content for the same turn
+- Resolve Claude binary from common install locations (`~/.local/bin`, nvm, homebrew) before falling back to `PATH`, fixing "claude not found" in macOS `.app` bundles
+- Remove icon border; replace placeholder icons with black/monospace "gnz" branded icons
+
 ## 0.1.1
 
 ### Alive Mode & Chat UI Rebuild
