@@ -532,3 +532,29 @@ func (h *Handler) CreateBranch(w http.ResponseWriter, r *http.Request) {
 
 	server.Success(w, nil)
 }
+
+func (h *Handler) FileDiff(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
+	repo := r.URL.Query().Get("repo")
+	path := r.URL.Query().Get("path")
+	staged := r.URL.Query().Get("staged") == "true"
+
+	if repo == "" || path == "" {
+		server.BadRequest(w, "query parameters 'repo' and 'path' are required")
+		return
+	}
+
+	repoPath, err := h.resolveRepoPath(wsID, repo)
+	if err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	diff, err := GetFileDiff(repoPath, path, staged)
+	if err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	server.Success(w, diff)
+}

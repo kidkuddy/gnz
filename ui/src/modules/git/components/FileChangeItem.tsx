@@ -8,6 +8,7 @@ interface FileChangeItemProps {
   onStage: () => void;
   onUnstage: () => void;
   onDiscard: () => void;
+  onClick?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -25,6 +26,7 @@ export function FileChangeItem({
   onStage,
   onUnstage,
   onDiscard,
+  onClick,
 }: FileChangeItemProps) {
   const [hovered, setHovered] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
@@ -60,10 +62,11 @@ export function FileChangeItem({
         alignItems: 'center',
         gap: 'var(--space-1)',
         padding: '2px var(--space-3)',
-        cursor: 'default',
+        cursor: onClick ? 'pointer' : 'default',
         background: hovered ? 'var(--bg-hover)' : 'transparent',
         transition: 'background 80ms ease',
       }}
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => {
         setHovered(false);

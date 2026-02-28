@@ -7,6 +7,7 @@ export function ScratchpadView() {
   const content = useScratchpadStore((s) => s.content);
   const savedContent = useScratchpadStore((s) => s.savedContent);
   const loaded = useScratchpadStore((s) => s.loaded);
+  const loadedForWorkspace = useScratchpadStore((s) => s.loadedForWorkspace);
   const saving = useScratchpadStore((s) => s.saving);
   const load = useScratchpadStore((s) => s.load);
   const save = useScratchpadStore((s) => s.save);
@@ -15,13 +16,10 @@ export function ScratchpadView() {
   const dirty = content !== savedContent;
 
   React.useEffect(() => {
-    if (activeWorkspace) {
+    if (activeWorkspace && loadedForWorkspace !== activeWorkspace.id) {
       load(activeWorkspace.id);
     }
-    return () => {
-      useScratchpadStore.getState().reset();
-    };
-  }, [activeWorkspace, load]);
+  }, [activeWorkspace, load, loadedForWorkspace]);
 
   // Cmd+S to save
   React.useEffect(() => {

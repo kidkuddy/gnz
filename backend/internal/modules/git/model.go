@@ -49,3 +49,9 @@ type Branch struct {
 	Name      string `json:"name"`
 	IsCurrent bool   `json:"is_current"`
 }
+
+type FileDiff struct {
+	Path   string `json:"path"`
+	Staged bool   `json:"staged"`
+	Diff   string `json:"diff"`
+}

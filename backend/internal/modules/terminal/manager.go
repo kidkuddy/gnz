@@ -214,6 +214,17 @@ func (m *Manager) Shutdown() {
 	}
 }
 
+func (m *Manager) Rename(id, name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rt, exists := m.terminals[id]
+	if !exists {
+		return fmt.Errorf("terminal %s not found", id)
+	}
+	rt.session.Name = name
+	return nil
+}
+
 func (m *Manager) count() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

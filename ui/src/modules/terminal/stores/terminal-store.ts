@@ -8,6 +8,7 @@ interface TerminalStore {
   loadSessions: (workspaceId: string) => Promise<void>;
   createSession: (workspaceId: string, cwd?: string) => Promise<TerminalSession>;
   deleteSession: (workspaceId: string, id: string) => Promise<void>;
+  renameSession: (workspaceId: string, id: string, name: string) => Promise<void>;
   setActiveSession: (id: string | null) => void;
 }
 
@@ -35,6 +36,13 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
     set((s) => ({
       sessions: s.sessions.filter((sess) => sess.id !== id),
       activeSessionId: s.activeSessionId === id ? null : s.activeSessionId,
+    }));
+  },
+
+  renameSession: async (workspaceId, id, name) => {
+    await terminalApi.rename(workspaceId, id, name);
+    set((s) => ({
+      sessions: s.sessions.map((sess) => (sess.id === id ? { ...sess, name } : sess)),
     }));
   },
 

@@ -110,6 +110,8 @@ export const terminalApi = {
     apiPost<{ status: string }>(`workspaces/${ws}/terminals/${id}/input`, { data }),
   resize: (ws: string, id: string, cols: number, rows: number) =>
     apiPost<{ status: string }>(`workspaces/${ws}/terminals/${id}/resize`, { cols, rows }),
+  rename: (ws: string, id: string, name: string) =>
+    apiPost<{ status: string }>(`workspaces/${ws}/terminals/${id}/rename`, { name }),
 };
 
 // Files API
@@ -176,6 +178,12 @@ export interface GitCommitDiff {
   diff: string;
 }
 
+export interface GitFileDiff {
+  path: string;
+  staged: boolean;
+  diff: string;
+}
+
 export interface GitStash {
   index: number;
   message: string;
@@ -216,6 +224,8 @@ export const gitApi = {
     apiPost<null>(`workspaces/${ws}/git/checkout`, { repo, branch }),
   createBranch: (ws: string, repo: string, branch: string) =>
     apiPost<null>(`workspaces/${ws}/git/branch`, { repo, branch }),
+  fileDiff: (ws: string, repo: string, path: string, staged: boolean) =>
+    apiGet<GitFileDiff>(`workspaces/${ws}/git/file-diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&staged=${staged}`),
 };
 
 // Actions API

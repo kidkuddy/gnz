@@ -6,6 +6,7 @@ export interface TabDefinition {
   type: string;
   renderContent: (tab: Tab) => React.ReactNode;
   onClose?: (tab: Tab) => void;
+  onRename?: (tab: Tab, title: string) => void;
 }
 
 export interface ModuleDefinition {

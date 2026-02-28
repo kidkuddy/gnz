@@ -163,3 +163,26 @@ func (h *Handler) ResizePTY(w http.ResponseWriter, r *http.Request) {
 
 	server.Success(w, map[string]string{"status": "ok"})
 }
+
+func (h *Handler) Rename(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		server.BadRequest(w, "invalid request body")
+		return
+	}
+	if body.Name == "" {
+		server.BadRequest(w, "name is required")
+		return
+	}
+
+	if err := h.manager.Rename(id, body.Name); err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	server.Success(w, map[string]string{"status": "ok"})
+}

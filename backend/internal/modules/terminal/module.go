@@ -14,4 +14,5 @@ func Register(r chi.Router, manager *Manager) {
 	r.Get("/workspaces/{ws}/terminals/{id}/stream", h.Stream)
 	r.Post("/workspaces/{ws}/terminals/{id}/input", h.Input)
 	r.Post("/workspaces/{ws}/terminals/{id}/resize", h.ResizePTY)
+	r.Post("/workspaces/{ws}/terminals/{id}/rename", h.Rename)
 }

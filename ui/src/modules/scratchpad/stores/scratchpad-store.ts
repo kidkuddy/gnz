@@ -5,6 +5,7 @@ interface ScratchpadStore {
   content: string;
   savedContent: string;
   loaded: boolean;
+  loadedForWorkspace: string | null;
   saving: boolean;
 
   load: (workspaceId: string) => Promise<void>;
@@ -18,14 +19,15 @@ export const useScratchpadStore = create<ScratchpadStore>((set, get) => ({
   content: '',
   savedContent: '',
   loaded: false,
+  loadedForWorkspace: null,
   saving: false,
 
   load: async (workspaceId) => {
     try {
       const pad = await scratchpadApi.get(workspaceId);
-      set({ content: pad.content, savedContent: pad.content, loaded: true });
+      set({ content: pad.content, savedContent: pad.content, loaded: true, loadedForWorkspace: workspaceId });
     } catch {
-      set({ content: '', savedContent: '', loaded: true });
+      set({ content: '', savedContent: '', loaded: true, loadedForWorkspace: workspaceId });
     }
   },
 
@@ -52,6 +54,6 @@ export const useScratchpadStore = create<ScratchpadStore>((set, get) => ({
   },
 
   reset: () => {
-    set({ content: '', savedContent: '', loaded: false, saving: false });
+    set({ content: '', savedContent: '', loaded: false, loadedForWorkspace: null, saving: false });
   },
 }));

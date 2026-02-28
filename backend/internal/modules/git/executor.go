@@ -424,3 +424,17 @@ func CreateBranch(repoPath, branch string) error {
 	_, err := runGit(repoPath, "checkout", "-b", branch)
 	return err
 }
+
+func GetFileDiff(repoPath, filePath string, staged bool) (*FileDiff, error) {
+	var out string
+	var err error
+	if staged {
+		out, err = runGit(repoPath, "diff", "--cached", "--", filePath)
+	} else {
+		out, err = runGit(repoPath, "diff", "--", filePath)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &FileDiff{Path: filePath, Staged: staged, Diff: out}, nil
+}

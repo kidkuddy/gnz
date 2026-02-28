@@ -4,6 +4,7 @@ import { tabRegistry } from '../../stores/tab-registry';
 import { GitPanel } from './components/GitPanel';
 import { GitHistoryView } from './views/GitHistoryView';
 import { GitDiffView } from './views/GitDiffView';
+import { GitFileDiffView } from './views/GitFileDiffView';
 
 export function registerGitModule() {
   tabRegistry.registerModule({
@@ -19,6 +20,10 @@ export function registerGitModule() {
       {
         type: 'git-diff',
         renderContent: () => React.createElement(GitDiffView),
+      },
+      {
+        type: 'git-file-diff',
+        renderContent: () => React.createElement(GitFileDiffView),
       },
     ],
   });

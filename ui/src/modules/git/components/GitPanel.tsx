@@ -170,6 +170,18 @@ export function GitPanel() {
     });
   };
 
+  const handleOpenFileDiff = (filePath: string, staged: boolean) => {
+    const fileName = filePath.split('/').pop() || filePath;
+    const tabId = `git-file-diff-${staged ? 'staged' : 'unstaged'}-${filePath}`;
+    addTab({
+      id: tabId,
+      title: fileName,
+      type: 'git-file-diff',
+      moduleId: 'git',
+      data: { filePath, staged },
+    });
+  };
+
   const currentRepo = repos.find((r) => r.path === selectedRepo);
 
   if (!activeWorkspace) {
@@ -392,6 +404,7 @@ export function GitPanel() {
                 onStage={() => {}}
                 onUnstage={() => wsId && unstage(wsId, [f.path]).catch((e) => toast.error(`${e}`))}
                 onDiscard={() => {}}
+                onClick={() => handleOpenFileDiff(f.path, true)}
               />
             ))
           )}
@@ -423,6 +436,7 @@ export function GitPanel() {
                 onStage={() => wsId && stage(wsId, [f.path]).catch((e) => toast.error(`${e}`))}
                 onUnstage={() => {}}
                 onDiscard={() => wsId && discard(wsId, [f.path]).catch((e) => toast.error(`${e}`))}
+                onClick={f.status !== '?' ? () => handleOpenFileDiff(f.path, false) : undefined}
               />
             ))
           )}

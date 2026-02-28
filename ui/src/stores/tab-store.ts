@@ -61,6 +61,11 @@ export const useTabStore = create<TabState>((set, get) => ({
 
   renameTab: (id, title) => {
     const state = get();
+    const tab = state.tabs.find((t) => t.id === id);
+    if (tab) {
+      const def = tabRegistry.getTabDefinition(tab.type);
+      def?.onRename?.(tab, title);
+    }
     set({ tabs: state.tabs.map((t) => (t.id === id ? { ...t, title } : t)) });
   },
 

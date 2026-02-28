@@ -26,4 +26,5 @@ func Register(r chi.Router, wsSvc *workspace.Service) {
 	r.Get("/workspaces/{ws}/git/branches", h.ListBranches)
 	r.Post("/workspaces/{ws}/git/checkout", h.CheckoutBranch)
 	r.Post("/workspaces/{ws}/git/branch", h.CreateBranch)
+	r.Get("/workspaces/{ws}/git/file-diff", h.FileDiff)
 }
