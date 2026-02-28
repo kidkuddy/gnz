@@ -32,7 +32,9 @@ export function SearchPanel() {
     const val = e.target.value;
     setQuery(val);
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (activeWorkspace && val.trim()) {
+    if (!val.trim()) {
+      if (activeWorkspace) search(activeWorkspace.id, '');
+    } else if (activeWorkspace) {
       timerRef.current = setTimeout(() => {
         search(activeWorkspace.id, val);
       }, 300);

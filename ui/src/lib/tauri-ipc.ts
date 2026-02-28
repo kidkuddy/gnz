@@ -148,6 +148,11 @@ export interface GitFileChange {
   staged: boolean;
 }
 
+export interface GitBranch {
+  name: string;
+  is_current: boolean;
+}
+
 export interface GitStatus {
   branch: string;
   ahead: number;
@@ -205,6 +210,12 @@ export const gitApi = {
     apiPost<{ status: string }>(`workspaces/${ws}/git/stash/drop`, { repo, index }),
   stashPush: (ws: string, repo: string, message: string) =>
     apiPost<{ status: string }>(`workspaces/${ws}/git/stash/push`, { repo, message }),
+  listBranches: (ws: string, repo: string) =>
+    apiGet<GitBranch[]>(`workspaces/${ws}/git/branches?repo=${encodeURIComponent(repo)}`),
+  checkoutBranch: (ws: string, repo: string, branch: string) =>
+    apiPost<null>(`workspaces/${ws}/git/checkout`, { repo, branch }),
+  createBranch: (ws: string, repo: string, branch: string) =>
+    apiPost<null>(`workspaces/${ws}/git/branch`, { repo, branch }),
 };
 
 // Actions API

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   gitApi,
+  type GitBranch,
   type GitRepository,
   type GitStatus,
   type GitCommit,
@@ -13,6 +14,7 @@ interface GitStore {
   status: GitStatus | null;
   commits: GitCommit[];
   stashes: GitStash[];
+  branches: GitBranch[];
   commitMessage: string;
   loading: boolean;
 
@@ -21,6 +23,9 @@ interface GitStore {
   loadStatus: (wsId: string) => Promise<void>;
   loadCommits: (wsId: string, limit?: number) => Promise<void>;
   loadStashes: (wsId: string) => Promise<void>;
+  loadBranches: (wsId: string) => Promise<void>;
+  checkoutBranch: (wsId: string, branch: string) => Promise<void>;
+  createBranch: (wsId: string, branch: string) => Promise<void>;
   stage: (wsId: string, files: string[]) => Promise<void>;
   unstage: (wsId: string, files: string[]) => Promise<void>;
   discard: (wsId: string, files: string[]) => Promise<void>;
@@ -40,6 +45,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
   status: null,
   commits: [],
   stashes: [],
+  branches: [],
   commitMessage: '',
   loading: false,
 
@@ -58,11 +64,12 @@ export const useGitStore = create<GitStore>((set, get) => ({
   },
 
   selectRepo: async (wsId, path) => {
-    set({ selectedRepo: path, status: null, commits: [], stashes: [] });
+    set({ selectedRepo: path, status: null, commits: [], stashes: [], branches: [] });
     await Promise.all([
       get().loadStatus(wsId),
       get().loadCommits(wsId),
       get().loadStashes(wsId),
+      get().loadBranches(wsId),
     ]);
   },
 
@@ -97,6 +104,31 @@ export const useGitStore = create<GitStore>((set, get) => ({
     } catch {
       set({ stashes: [] });
     }
+  },
+
+  loadBranches: async (wsId) => {
+    const { selectedRepo } = get();
+    if (!selectedRepo) return;
+    try {
+      const branches = await gitApi.listBranches(wsId, selectedRepo);
+      set({ branches: Array.isArray(branches) ? branches : [] });
+    } catch {
+      set({ branches: [] });
+    }
+  },
+
+  checkoutBranch: async (wsId, branch) => {
+    const { selectedRepo } = get();
+    if (!selectedRepo) return;
+    await gitApi.checkoutBranch(wsId, selectedRepo, branch);
+    await Promise.all([get().loadStatus(wsId), get().loadBranches(wsId)]);
+  },
+
+  createBranch: async (wsId, branch) => {
+    const { selectedRepo } = get();
+    if (!selectedRepo) return;
+    await gitApi.createBranch(wsId, selectedRepo, branch);
+    await Promise.all([get().loadStatus(wsId), get().loadBranches(wsId)]);
   },
 
   stage: async (wsId, files) => {
@@ -170,6 +202,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       get().loadStatus(wsId),
       get().loadCommits(wsId),
       get().loadStashes(wsId),
+      get().loadBranches(wsId),
     ]);
   },
 }));

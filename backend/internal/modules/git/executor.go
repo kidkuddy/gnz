@@ -394,3 +394,33 @@ func StashPush(repoPath string, message string) error {
 	_, err := runGit(repoPath, "stash", "push")
 	return err
 }
+
+func ListBranches(repoPath string) ([]Branch, error) {
+	out, err := runGit(repoPath, "branch")
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return []Branch{}, nil
+	}
+	var branches []Branch
+	for _, line := range strings.Split(out, "\n") {
+		if line == "" {
+			continue
+		}
+		isCurrent := strings.HasPrefix(line, "* ")
+		name := strings.TrimPrefix(strings.TrimPrefix(line, "* "), "  ")
+		branches = append(branches, Branch{Name: name, IsCurrent: isCurrent})
+	}
+	return branches, nil
+}
+
+func CheckoutBranch(repoPath, branch string) error {
+	_, err := runGit(repoPath, "checkout", branch)
+	return err
+}
+
+func CreateBranch(repoPath, branch string) error {
+	_, err := runGit(repoPath, "checkout", "-b", branch)
+	return err
+}

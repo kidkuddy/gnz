@@ -70,9 +70,10 @@ func main() {
 
 	// Initialize claude module
 	var claudeMgr *claude.Manager
+	var claudeSvc *claude.Service
 	if cfg.Features.Claude {
 		claudeStore := claude.NewStore(db)
-		claudeSvc := claude.NewService(claudeStore)
+		claudeSvc = claude.NewService(claudeStore)
 		claudeMgr = claude.NewManager(claudeSvc, cfg.Port)
 
 		srv.RegisterModuleRoutes(func(r chi.Router) {
@@ -118,7 +119,7 @@ func main() {
 
 	// Register MCP server
 	if cfg.Features.MCP {
-		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr)
+		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr, claudeSvc, claudeMgr)
 		if err != nil {
 			log.Fatalf("creating MCP server: %v", err)
 		}

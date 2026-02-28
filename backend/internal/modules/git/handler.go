@@ -141,6 +141,11 @@ type stashPushRequest struct {
 	Message string `json:"message"`
 }
 
+type branchRequest struct {
+	Repo   string `json:"repo"`
+	Branch string `json:"branch"`
+}
+
 func (h *Handler) Stage(w http.ResponseWriter, r *http.Request) {
 	wsID := chi.URLParam(r, "ws")
 	var req filesRequest
@@ -446,6 +451,81 @@ func (h *Handler) StashPush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := StashPush(repoPath, req.Message); err != nil {
+		server.InternalError(w, err.Error())
+		return
+	}
+
+	server.Success(w, nil)
+}
+
+func (h *Handler) ListBranches(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
+	repo := r.URL.Query().Get("repo")
+	if repo == "" {
+		server.BadRequest(w, "query parameter 'repo' is required")
+		return
+	}
+
+	repoPath, err := h.resolveRepoPath(wsID, repo)
+	if err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	branches, err := ListBranches(repoPath)
+	if err != nil {
+		server.InternalError(w, err.Error())
+		return
+	}
+
+	server.Success(w, branches)
+}
+
+func (h *Handler) CheckoutBranch(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
+	var req branchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		server.BadRequest(w, "invalid request body")
+		return
+	}
+	if req.Repo == "" || req.Branch == "" {
+		server.BadRequest(w, "repo and branch are required")
+		return
+	}
+
+	repoPath, err := h.resolveRepoPath(wsID, req.Repo)
+	if err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	if err := CheckoutBranch(repoPath, req.Branch); err != nil {
+		server.InternalError(w, err.Error())
+		return
+	}
+
+	server.Success(w, nil)
+}
+
+func (h *Handler) CreateBranch(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
+	var req branchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		server.BadRequest(w, "invalid request body")
+		return
+	}
+	if req.Repo == "" || req.Branch == "" {
+		server.BadRequest(w, "repo and branch are required")
+		return
+	}
+
+	repoPath, err := h.resolveRepoPath(wsID, req.Repo)
+	if err != nil {
+		server.BadRequest(w, err.Error())
+		return
+	}
+
+	if err := CreateBranch(repoPath, req.Branch); err != nil {
 		server.InternalError(w, err.Error())
 		return
 	}

@@ -23,4 +23,7 @@ func Register(r chi.Router, wsSvc *workspace.Service) {
 	r.Post("/workspaces/{ws}/git/stash/apply", h.StashApply)
 	r.Post("/workspaces/{ws}/git/stash/drop", h.StashDrop)
 	r.Post("/workspaces/{ws}/git/stash/push", h.StashPush)
+	r.Get("/workspaces/{ws}/git/branches", h.ListBranches)
+	r.Post("/workspaces/{ws}/git/checkout", h.CheckoutBranch)
+	r.Post("/workspaces/{ws}/git/branch", h.CreateBranch)
 }

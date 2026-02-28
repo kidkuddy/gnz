@@ -44,3 +44,8 @@ type Stash struct {
 	Index   int    `json:"index"`
 	Message string `json:"message"`
 }
+
+type Branch struct {
+	Name      string `json:"name"`
+	IsCurrent bool   `json:"is_current"`
+}

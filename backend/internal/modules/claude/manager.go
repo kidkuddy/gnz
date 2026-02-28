@@ -219,7 +219,11 @@ func (m *Manager) spawnProcess(sess *Session, text string) (<-chan string, error
 			}
 			lineCount++
 			log.Printf("[claude:%s:stdout] line %d: %.200s", sess.ID[:8], lineCount, line)
-			events <- line
+			select {
+			case events <- line:
+			case <-ctx.Done():
+				return
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			log.Printf("[claude:%s] stdout scanner error: %v", sess.ID[:8], err)

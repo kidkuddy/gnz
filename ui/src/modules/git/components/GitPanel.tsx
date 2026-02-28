@@ -25,6 +25,7 @@ export function GitPanel() {
   const selectedRepo = useGitStore((s) => s.selectedRepo);
   const status = useGitStore((s) => s.status);
   const stashes = useGitStore((s) => s.stashes);
+  const branches = useGitStore((s) => s.branches);
   const commitMessage = useGitStore((s) => s.commitMessage);
 
   const loadRepos = useGitStore((s) => s.loadRepos);
@@ -40,9 +41,13 @@ export function GitPanel() {
   const stashPush = useGitStore((s) => s.stashPush);
   const setCommitMessage = useGitStore((s) => s.setCommitMessage);
   const refresh = useGitStore((s) => s.refresh);
+  const checkoutBranch = useGitStore((s) => s.checkoutBranch);
+  const createBranch = useGitStore((s) => s.createBranch);
 
   const [stashesOpen, setStashesOpen] = React.useState(false);
   const [repoDropdownOpen, setRepoDropdownOpen] = React.useState(false);
+  const [branchDropdownOpen, setBranchDropdownOpen] = React.useState(false);
+  const [newBranchName, setNewBranchName] = React.useState('');
 
   const wsId = activeWorkspace?.id;
 
@@ -130,6 +135,29 @@ export function GitPanel() {
       toast.success('Stashed');
     } catch (err) {
       toast.error(`Stash failed: ${err}`);
+    }
+  };
+
+  const handleCheckoutBranch = async (branch: string) => {
+    if (!wsId) return;
+    try {
+      await checkoutBranch(wsId, branch);
+      setBranchDropdownOpen(false);
+      toast.success(`Switched to ${branch}`);
+    } catch (err) {
+      toast.error(`Checkout failed: ${err}`);
+    }
+  };
+
+  const handleCreateBranch = async () => {
+    if (!wsId || !newBranchName.trim()) return;
+    try {
+      await createBranch(wsId, newBranchName.trim());
+      setNewBranchName('');
+      setBranchDropdownOpen(false);
+      toast.success(`Created and switched to ${newBranchName.trim()}`);
+    } catch (err) {
+      toast.error(`Create branch failed: ${err}`);
     }
   };
 
@@ -253,6 +281,89 @@ export function GitPanel() {
           </div>
         )}
       </div>
+
+      {/* Branch switcher */}
+      {selectedRepo && (
+        <div style={{ padding: 'var(--space-1) var(--space-3)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div
+            onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              cursor: 'pointer',
+              padding: '3px 0',
+            }}
+          >
+            <GitBranch size={11} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {status?.branch || '—'}
+            </span>
+            <ChevronDown size={10} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+          </div>
+          {branchDropdownOpen && (
+            <div
+              style={{
+                marginTop: 'var(--space-1)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'hidden',
+              }}
+            >
+              {branches.map((b) => (
+                <div
+                  key={b.name}
+                  onClick={() => !b.is_current && handleCheckoutBranch(b.name)}
+                  style={{
+                    padding: '4px var(--space-3)',
+                    fontSize: '11px',
+                    color: b.is_current ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    background: b.is_current ? 'var(--accent-muted)' : 'transparent',
+                    cursor: b.is_current ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  {b.is_current ? '* ' : '  '}{b.name}
+                </div>
+              ))}
+              <div style={{ borderTop: '1px solid var(--border-subtle)', padding: 'var(--space-2) var(--space-3)', display: 'flex', gap: 'var(--space-2)' }}>
+                <input
+                  value={newBranchName}
+                  onChange={(e) => setNewBranchName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateBranch()}
+                  placeholder="new branch name..."
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-base)',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={handleCreateBranch}
+                  disabled={!newBranchName.trim()}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'none',
+                    border: 'none',
+                    cursor: newBranchName.trim() ? 'pointer' : 'default',
+                    color: newBranchName.trim() ? 'var(--text-secondary)' : 'var(--text-disabled)',
+                    padding: 0,
+                  }}
+                  title="Create branch"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Changes */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
