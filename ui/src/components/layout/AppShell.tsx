@@ -43,6 +43,7 @@ const emptyMainStyle: React.CSSProperties = {
 interface AppShellProps {
   activeModule: string;
   onModuleChange: (moduleId: string) => void;
+  panelOpen: boolean;
 }
 
 function PanelContent({ activeModule }: { activeModule: string }) {
@@ -85,12 +86,18 @@ function MainContent() {
   return <>{def.renderContent(activeTab)}</>;
 }
 
-export function AppShell({ activeModule, onModuleChange }: AppShellProps) {
+export function AppShell({ activeModule, onModuleChange, panelOpen }: AppShellProps) {
   const hasRunningActions = useActionsStore((s) => s.runningActionIds.size > 0);
   const badges: Record<string, boolean> = hasRunningActions ? { actions: true } : {};
 
+  const dynamicShellStyle: React.CSSProperties = {
+    ...shellStyle,
+    gridTemplateColumns: `var(--activity-bar-width) ${panelOpen ? 'var(--panel-width)' : '0px'} 1fr`,
+    transition: 'grid-template-columns 150ms ease',
+  };
+
   return (
-    <div style={shellStyle}>
+    <div style={dynamicShellStyle}>
       <TitleBar />
       <ActivityBar activeModule={activeModule} onModuleChange={onModuleChange} badges={badges} />
       <Panel>

@@ -29,7 +29,7 @@ func Execute(db *sql.DB, query string, args ...interface{}) (*QueryResult, error
 		return nil, fmt.Errorf("getting columns: %w", err)
 	}
 
-	var resultRows [][]interface{}
+	resultRows := make([][]interface{}, 0)
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		scanArgs := make([]interface{}, len(cols))

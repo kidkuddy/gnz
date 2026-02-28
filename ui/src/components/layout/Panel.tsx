@@ -9,7 +9,7 @@ const containerStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   background: 'var(--bg-base)',
-  width: 'var(--panel-width)',
+  width: '100%',
   overflow: 'hidden',
 };
 

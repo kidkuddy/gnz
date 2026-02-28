@@ -84,6 +84,20 @@ export class ErrorBoundary extends React.Component<Props, State> {
             >
               Try Again
             </button>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '8px 16px',
+                background: '#0a0a0a',
+                border: 'none',
+                borderRadius: '3px',
+                color: '#d4d4d4',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Go to Workspace
+            </button>
           </div>
         </div>
       );

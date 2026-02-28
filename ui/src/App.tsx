@@ -9,6 +9,7 @@ export function App() {
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
   const fetchConfig = useSettingsStore((s) => s.fetchConfig);
   const [activeModule, setActiveModule] = React.useState('claude');
+  const [panelOpen, setPanelOpen] = React.useState(true);
 
   React.useEffect(() => {
     fetchConfig().catch(() => {});
@@ -16,7 +17,12 @@ export function App() {
   }, [fetchConfig, fetchWorkspaces]);
 
   const handleModuleChange = (moduleId: string) => {
-    setActiveModule(moduleId);
+    if (moduleId === activeModule) {
+      setPanelOpen((open) => !open);
+    } else {
+      setActiveModule(moduleId);
+      setPanelOpen(true);
+    }
   };
 
   if (!activeWorkspace) {
@@ -24,6 +30,6 @@ export function App() {
   }
 
   return (
-    <AppShell activeModule={activeModule} onModuleChange={handleModuleChange} />
+    <AppShell activeModule={activeModule} onModuleChange={handleModuleChange} panelOpen={panelOpen} />
   );
 }
