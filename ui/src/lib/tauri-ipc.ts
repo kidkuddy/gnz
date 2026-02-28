@@ -78,14 +78,20 @@ export const claudeApi = {
 
 // Scratchpad API
 export interface ScratchpadData {
+  id: string;
   workspace_id: string;
+  name: string;
   content: string;
   updated_at: string;
 }
 
 export const scratchpadApi = {
-  get: (ws: string) => apiGet<ScratchpadData>(`workspaces/${ws}/scratchpad`),
-  save: (ws: string, content: string) => apiPut<ScratchpadData>(`workspaces/${ws}/scratchpad`, { content }),
+  list: (ws: string) => apiGet<ScratchpadData[]>(`workspaces/${ws}/scratchpads`),
+  create: (ws: string, name: string) => apiPost<ScratchpadData>(`workspaces/${ws}/scratchpads`, { name }),
+  get: (ws: string, id: string) => apiGet<ScratchpadData>(`workspaces/${ws}/scratchpads/${id}`),
+  save: (ws: string, id: string, content: string) => apiPut<ScratchpadData>(`workspaces/${ws}/scratchpads/${id}`, { content }),
+  rename: (ws: string, id: string, name: string) => apiPost<ScratchpadData>(`workspaces/${ws}/scratchpads/${id}/rename`, { name }),
+  delete: (ws: string, id: string) => apiDelete(`workspaces/${ws}/scratchpads/${id}`),
 };
 
 // Terminal API

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { terminalApi, type TerminalSession } from '../../../lib/tauri-ipc';
+import { useTabStore } from '../../../stores/tab-store';
 
 interface TerminalStore {
   sessions: TerminalSession[];
@@ -33,6 +34,7 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
 
   deleteSession: async (workspaceId, id) => {
     await terminalApi.delete(workspaceId, id);
+    useTabStore.getState().removeTab(`terminal-${id}`);
     set((s) => ({
       sessions: s.sessions.filter((sess) => sess.id !== id),
       activeSessionId: s.activeSessionId === id ? null : s.activeSessionId,

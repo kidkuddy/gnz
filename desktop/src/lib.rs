@@ -3,7 +3,8 @@ mod sidecar;
 
 use commands::BackendState;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 struct SidecarState(Mutex<Option<sidecar::SidecarManager>>);
 
@@ -34,6 +35,38 @@ pub fn run() {
             app.manage(BackendState {
                 port,
                 client: reqwest::Client::new(),
+            });
+
+            // Build native File menu
+            let new_window_item = MenuItem::with_id(
+                app,
+                "new-window",
+                "New Window",
+                true,
+                Some("CmdOrCtrl+Shift+N"),
+            )?;
+            let file_menu = Submenu::with_items(app, "File", true, &[&new_window_item])?;
+            let menu = Menu::with_items(app, &[&file_menu])?;
+            app.set_menu(menu)?;
+
+            app.on_menu_event(|app, event| {
+                if event.id() == "new-window" {
+                    let label = format!(
+                        "gnz-{}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis()
+                    );
+                    let _ = WebviewWindowBuilder::new(
+                        app,
+                        &label,
+                        WebviewUrl::App("index.html".into()),
+                    )
+                    .title("gnz")
+                    .inner_size(1200.0, 800.0)
+                    .build();
+                }
             });
 
             Ok(())

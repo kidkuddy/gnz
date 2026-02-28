@@ -1,59 +1,131 @@
 import { create } from 'zustand';
-import { scratchpadApi } from '../../../lib/tauri-ipc';
+import { scratchpadApi, type ScratchpadData } from '../../../lib/tauri-ipc';
+import { useTabStore } from '../../../stores/tab-store';
 
-interface ScratchpadStore {
+interface PadState {
   content: string;
   savedContent: string;
-  loaded: boolean;
-  loadedForWorkspace: string | null;
   saving: boolean;
+  loaded: boolean;
+}
 
-  load: (workspaceId: string) => Promise<void>;
-  save: (workspaceId: string) => Promise<void>;
-  setContent: (content: string) => void;
-  isDirty: () => boolean;
-  reset: () => void;
+interface ScratchpadStore {
+  pads: ScratchpadData[];
+  loadedForWorkspace: string | null;
+  padStates: Record<string, PadState>;
+
+  loadPads: (workspaceId: string) => Promise<void>;
+  createPad: (workspaceId: string, name: string) => Promise<ScratchpadData>;
+  deletePad: (workspaceId: string, id: string) => Promise<void>;
+  renamePad: (workspaceId: string, id: string, name: string) => Promise<void>;
+
+  loadPadContent: (workspaceId: string, id: string) => Promise<void>;
+  savePad: (workspaceId: string, id: string) => Promise<void>;
+  setPadContent: (id: string, content: string) => void;
+  isPadDirty: (id: string) => boolean;
 }
 
 export const useScratchpadStore = create<ScratchpadStore>((set, get) => ({
-  content: '',
-  savedContent: '',
-  loaded: false,
+  pads: [],
   loadedForWorkspace: null,
-  saving: false,
+  padStates: {},
 
-  load: async (workspaceId) => {
+  loadPads: async (workspaceId) => {
     try {
-      const pad = await scratchpadApi.get(workspaceId);
-      set({ content: pad.content, savedContent: pad.content, loaded: true, loadedForWorkspace: workspaceId });
+      const pads = await scratchpadApi.list(workspaceId);
+      set({ pads: Array.isArray(pads) ? pads : [], loadedForWorkspace: workspaceId });
     } catch {
-      set({ content: '', savedContent: '', loaded: true, loadedForWorkspace: workspaceId });
+      set({ pads: [], loadedForWorkspace: workspaceId });
     }
   },
 
-  save: async (workspaceId) => {
-    const { content } = get();
-    set({ saving: true });
+  createPad: async (workspaceId, name) => {
+    const pad = await scratchpadApi.create(workspaceId, name);
+    set((s) => ({ pads: [pad, ...s.pads] }));
+    return pad;
+  },
+
+  deletePad: async (workspaceId, id) => {
+    await scratchpadApi.delete(workspaceId, id);
+    useTabStore.getState().removeTab(`scratchpad-${id}`);
+    set((s) => {
+      const { [id]: _, ...rest } = s.padStates;
+      return {
+        pads: s.pads.filter((p) => p.id !== id),
+        padStates: rest,
+      };
+    });
+  },
+
+  renamePad: async (workspaceId, id, name) => {
+    const updated = await scratchpadApi.rename(workspaceId, id, name);
+    set((s) => ({
+      pads: s.pads.map((p) => (p.id === id ? updated : p)),
+    }));
+  },
+
+  loadPadContent: async (workspaceId, id) => {
+    const existing = get().padStates[id];
+    if (existing?.loaded) return;
+
+    set((s) => ({
+      padStates: {
+        ...s.padStates,
+        [id]: { content: '', savedContent: '', saving: false, loaded: false },
+      },
+    }));
+
     try {
-      await scratchpadApi.save(workspaceId, content);
-      set({ savedContent: content });
+      const pad = await scratchpadApi.get(workspaceId, id);
+      set((s) => ({
+        padStates: {
+          ...s.padStates,
+          [id]: { content: pad.content, savedContent: pad.content, saving: false, loaded: true },
+        },
+      }));
     } catch {
-      // Silent fail
-    } finally {
-      set({ saving: false });
+      set((s) => ({
+        padStates: {
+          ...s.padStates,
+          [id]: { content: '', savedContent: '', saving: false, loaded: true },
+        },
+      }));
     }
   },
 
-  setContent: (content) => {
-    set({ content });
+  savePad: async (workspaceId, id) => {
+    const state = get().padStates[id];
+    if (!state) return;
+    set((s) => ({
+      padStates: { ...s.padStates, [id]: { ...s.padStates[id], saving: true } },
+    }));
+    try {
+      await scratchpadApi.save(workspaceId, id, state.content);
+      set((s) => ({
+        padStates: {
+          ...s.padStates,
+          [id]: { ...s.padStates[id], savedContent: state.content, saving: false },
+        },
+      }));
+    } catch {
+      set((s) => ({
+        padStates: { ...s.padStates, [id]: { ...s.padStates[id], saving: false } },
+      }));
+    }
   },
 
-  isDirty: () => {
-    const { content, savedContent } = get();
-    return content !== savedContent;
+  setPadContent: (id, content) => {
+    set((s) => ({
+      padStates: {
+        ...s.padStates,
+        [id]: { ...s.padStates[id], content },
+      },
+    }));
   },
 
-  reset: () => {
-    set({ content: '', savedContent: '', loaded: false, loadedForWorkspace: null, saving: false });
+  isPadDirty: (id) => {
+    const state = get().padStates[id];
+    if (!state) return false;
+    return state.content !== state.savedContent;
   },
 }));

@@ -1,48 +1,63 @@
 import React from 'react';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useScratchpadStore } from '../stores/scratchpad-store';
+import type { Tab } from '../../../stores/tab-store';
 
-export function ScratchpadView() {
+interface Props {
+  tab: Tab;
+}
+
+export function ScratchpadView({ tab }: Props) {
+  const padId = tab.data?.padId as string | undefined;
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace);
-  const content = useScratchpadStore((s) => s.content);
-  const savedContent = useScratchpadStore((s) => s.savedContent);
-  const loaded = useScratchpadStore((s) => s.loaded);
-  const loadedForWorkspace = useScratchpadStore((s) => s.loadedForWorkspace);
-  const saving = useScratchpadStore((s) => s.saving);
-  const load = useScratchpadStore((s) => s.load);
-  const save = useScratchpadStore((s) => s.save);
-  const setContent = useScratchpadStore((s) => s.setContent);
+  const padStates = useScratchpadStore((s) => s.padStates);
+  const loadPadContent = useScratchpadStore((s) => s.loadPadContent);
+  const savePad = useScratchpadStore((s) => s.savePad);
+  const setPadContent = useScratchpadStore((s) => s.setPadContent);
 
+  const padState = padId ? padStates[padId] : undefined;
+  const content = padState?.content ?? '';
+  const savedContent = padState?.savedContent ?? '';
+  const loaded = padState?.loaded ?? false;
+  const saving = padState?.saving ?? false;
   const dirty = content !== savedContent;
 
   React.useEffect(() => {
-    if (activeWorkspace && loadedForWorkspace !== activeWorkspace.id) {
-      load(activeWorkspace.id);
+    if (activeWorkspace && padId) {
+      loadPadContent(activeWorkspace.id, padId);
     }
-  }, [activeWorkspace, load, loadedForWorkspace]);
+  }, [activeWorkspace, padId, loadPadContent]);
 
   // Cmd+S to save
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        if (activeWorkspace) {
-          save(activeWorkspace.id);
+        if (activeWorkspace && padId) {
+          savePad(activeWorkspace.id, padId);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeWorkspace, save]);
+  }, [activeWorkspace, padId, savePad]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    if (padId) setPadContent(padId, e.target.value);
   };
 
   if (!activeWorkspace) {
     return (
       <div style={emptyStyle}>
         <span>Select a workspace first</span>
+      </div>
+    );
+  }
+
+  if (!padId) {
+    return (
+      <div style={emptyStyle}>
+        <span>No scratchpad selected</span>
       </div>
     );
   }
@@ -59,7 +74,7 @@ export function ScratchpadView() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={titleStyle}>Scratchpad</span>
+          <span style={titleStyle}>{tab.title}</span>
           {dirty && <span style={dirtyDotStyle} title="Unsaved changes" />}
         </div>
         {saving && <span style={savingStyle}>Saving...</span>}

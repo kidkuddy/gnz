@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { claudeApi, getBackendPort, type ClaudeSession, type HistoryMessage, type PermissionMode } from '../../../lib/tauri-ipc';
+import { useTabStore } from '../../../stores/tab-store';
 
 export type MessageRole = 'user' | 'assistant';
 
@@ -191,6 +192,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
 
     await claudeApi.deleteSession(workspaceId, id);
+    useTabStore.getState().removeTab(`claude-${id}`);
     removeMessages(id);
     delete turnTracker[id];
     set((s) => {

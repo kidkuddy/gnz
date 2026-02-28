@@ -6,6 +6,7 @@ import {
   type CreateActionInput,
   type UpdateActionInput,
 } from '../../../lib/tauri-ipc';
+import { useTabStore } from '../../../stores/tab-store';
 
 interface ActionsStore {
   actions: Action[];
@@ -61,7 +62,11 @@ export const useActionsStore = create<ActionsStore>((set, get) => ({
   },
 
   deleteAction: async (wsId, id) => {
+    const runs = get().runs[id] || [];
     await actionsApi.delete(wsId, id);
+    for (const run of runs) {
+      useTabStore.getState().removeTab(`action-output-${run.id}`);
+    }
     await get().loadActions(wsId);
   },
 
@@ -77,6 +82,7 @@ export const useActionsStore = create<ActionsStore>((set, get) => ({
 
   killRun: async (wsId, runId) => {
     await actionsApi.killRun(wsId, runId);
+    useTabStore.getState().removeTab(`action-output-${runId}`);
   },
 
   loadRuns: async (wsId, actionId) => {
