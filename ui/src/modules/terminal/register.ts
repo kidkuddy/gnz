@@ -15,7 +15,7 @@ export function registerTerminalModule() {
     tabDefinitions: [
       {
         type: 'terminal-session',
-        renderContent: () => React.createElement(TerminalView),
+        renderContent: (tab) => React.createElement(TerminalView, { tab }),
         onRename: (tab, title) => {
           const sessionId = tab.data?.sessionId as string | undefined;
           if (!sessionId) return;

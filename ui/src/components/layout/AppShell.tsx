@@ -64,9 +64,31 @@ function MainContent() {
   const registry = useTabRegistry();
   const activeTabId = useTabStore((s) => s.activeTabId);
   const tabs = useTabStore((s) => s.tabs);
-  const activeTab = tabs.find((t) => t.id === activeTabId);
 
-  if (!activeTab) {
+  // Track which tabs have been mounted at least once — keeps them alive after first visit
+  const [mounted, setMounted] = React.useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (activeTabId) {
+      setMounted((prev) => {
+        if (prev.has(activeTabId)) return prev;
+        const next = new Set(prev);
+        next.add(activeTabId);
+        return next;
+      });
+    }
+  }, [activeTabId]);
+
+  // Remove from mounted when tab is closed
+  React.useEffect(() => {
+    const tabIdSet = new Set(tabs.map((t) => t.id));
+    setMounted((prev) => {
+      const next = new Set([...prev].filter((id) => tabIdSet.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [tabs]);
+
+  if (tabs.length === 0) {
     return (
       <div style={emptyMainStyle}>
         <span>Open a tab to get started</span>
@@ -74,16 +96,30 @@ function MainContent() {
     );
   }
 
-  const def = registry.getTabDefinition(activeTab.type);
-  if (!def) {
-    return (
-      <div style={emptyMainStyle}>
-        <span>Unknown tab type</span>
-      </div>
-    );
-  }
-
-  return <>{def.renderContent(activeTab)}</>;
+  return (
+    <>
+      {tabs
+        .filter((tab) => mounted.has(tab.id))
+        .map((tab) => {
+          const def = registry.getTabDefinition(tab.type);
+          if (!def) return null;
+          return (
+            <div
+              key={tab.id}
+              style={{
+                width: '100%',
+                height: '100%',
+                display: tab.id === activeTabId ? 'flex' : 'none',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              {def.renderContent(tab)}
+            </div>
+          );
+        })}
+    </>
+  );
 }
 
 export function AppShell({ activeModule, onModuleChange, panelOpen }: AppShellProps) {

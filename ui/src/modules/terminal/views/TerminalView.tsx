@@ -2,18 +2,18 @@ import React from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { useTabStore } from '../../../stores/tab-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useTerminalStore } from '../stores/terminal-store';
 import { getBackendPort, terminalApi } from '../../../lib/tauri-ipc';
+import type { Tab } from '../../../stores/tab-store';
 
-export function TerminalView() {
-  const activeTabId = useTabStore((s) => s.activeTabId);
-  const tabs = useTabStore((s) => s.tabs);
+interface Props {
+  tab: Tab;
+}
+
+export function TerminalView({ tab }: Props) {
+  const sessionId = tab.data?.sessionId as string | undefined;
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace);
-
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  const sessionId = activeTab?.data?.sessionId as string | undefined;
 
   React.useEffect(() => {
     if (activeWorkspace) {
@@ -35,7 +35,7 @@ export function TerminalView() {
     );
   }
 
-  return <TerminalInstance key={sessionId} sessionId={sessionId} workspaceId={activeWorkspace.id} />;
+  return <TerminalInstance sessionId={sessionId} workspaceId={activeWorkspace.id} />;
 }
 
 // Serialized input queue — ensures keystrokes arrive in order
@@ -83,6 +83,7 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
       cursorBlink: true,
       fontSize: 13,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
+      macOptionIsMeta: true,
       theme: {
         background: '#0a0a0b',
         foreground: '#e4e4e7',
@@ -160,11 +161,12 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
       });
     });
 
-    // Resize observer
+    // Resize observer — also fires when tab becomes visible (display:none → block)
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         if (fitRef.current && termRef.current) {
           fitRef.current.fit();
+          termRef.current.refresh(0, termRef.current.rows - 1);
           sendResize(workspaceId, sessionId, termRef.current.cols, termRef.current.rows);
         }
       });
