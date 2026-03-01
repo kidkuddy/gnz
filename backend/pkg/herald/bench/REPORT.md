@@ -91,3 +91,26 @@ Herald's CPU usage is negligible. The `hld` client is a compiled Go binary that 
 3. **Throughput scales naturally.** Herald's daemon handles concurrent sessions as goroutines. At C=8: 6.1 req/s vs 0.67 req/s. The gap would widen further at higher concurrency levels.
 
 4. **For long-running API calls, the gap narrows.** Heavy reasoning (16s API response) shows only 1.5x speedup — because the API latency dominates, not the tool overhead. Herald's advantage is most dramatic on short, frequent operations.
+
+---
+
+## Analysis & Next Steps
+
+### What the numbers validate
+
+The daemon architecture thesis holds up. A persistent Go process with goroutine-per-session beats spawn-per-invocation on every axis: latency, memory, CPU, throughput. The flat wall-time curve under concurrency (1.31s at C=8 vs 1.61s at C=2) confirms that the daemon is doing what it should — fan out API calls in parallel with near-zero coordination overhead.
+
+### Gaps in the current benchmark
+
+- **Only 2 runs per scenario.** Variance is noticeable — warm heavy_reasoning went 11.7s then 4.1s across two runs. Need 5+ runs for tighter confidence intervals.
+- **RSS sampling at 200ms.** Short parallel bursts (1.3s total) can miss memory spikes between samples. Higher-frequency sampling or `/proc`-based peak tracking would be more accurate.
+- **Warm session ID retrieval is fragile.** The benchmark hits `/sessions` and grabs the last entry. The `hld` CLI should return the session ID directly on creation so the benchmark (and users) don't have to query the API.
+- **No tool execution benchmarks.** All scenarios are prompt-only or use Claude's built-in tools. Herald's real value will show when custom MCP tools are in play — tool dispatch through a daemon vs tool dispatch through Node.
+
+### Where to focus next
+
+1. **`hld run` should output session ID** — print it to stderr or a structured output mode so callers can capture it without querying `/sessions`. Unblocks reliable warm session benchmarks and scripting workflows.
+2. **MCP tool benchmarks** — add scenarios that invoke registered MCP tools (file read, DB query, etc.) to measure Herald's tool dispatch overhead vs Claude's.
+3. **Longer session benchmarks** — multi-turn conversations (5-10 messages) to test daemon memory growth, session state management, and GC behavior over time.
+4. **Higher concurrency** — push to C=16, C=32 to find the ceiling. Herald should handle it given Go's goroutine model, but want to verify daemon RSS stays bounded.
+5. **Connection pooling** — if Herald isn't already reusing HTTP connections to the Anthropic API across sessions, that's free latency savings.
