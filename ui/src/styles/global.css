@@ -32,3 +32,15 @@ body {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+
+/* Galacta spinner */
+@keyframes galacta-spin {
+  0% { content: '⠋'; }
+  12.5% { content: '⠙'; }
+  25% { content: '⠹'; }
+  37.5% { content: '⠸'; }
+  50% { content: '⠼'; }
+  62.5% { content: '⠴'; }
+  75% { content: '⠦'; }
+  87.5% { content: '⠧'; }
+}

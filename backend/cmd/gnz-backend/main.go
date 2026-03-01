@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,9 +18,9 @@ import (
 	"github.com/clusterlab-ai/gnz/backend/internal/config"
 	mcpserver "github.com/clusterlab-ai/gnz/backend/internal/mcp"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/actions"
-	"github.com/clusterlab-ai/gnz/backend/internal/modules/claude"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/files"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/galacta"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/git"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/scratchpad"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/terminal"
@@ -35,6 +36,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error: --port is required")
 		os.Exit(1)
 	}
+
+	// Setup structured logging
+	logLevel := slog.LevelInfo
+	if os.Getenv("GNZ_DEBUG") != "" {
+		logLevel = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
 
 	// Load config
 	cfg, err := config.Load(*port)
@@ -68,16 +76,23 @@ func main() {
 		})
 	}
 
-	// Initialize claude module
-	var claudeMgr *claude.Manager
-	var claudeSvc *claude.Service
-	if cfg.Features.Claude {
-		claudeStore := claude.NewStore(db)
-		claudeSvc = claude.NewService(claudeStore)
-		claudeMgr = claude.NewManager(claudeSvc, cfg.Port)
+	// Initialize and auto-launch Galacta
+	var galactaSvc *galacta.Service
+	if cfg.Features.Galacta {
+		galactaSvc = galacta.NewService()
+
+		// Auto-launch Galacta in background if not already running
+		go func() {
+			status := galactaSvc.Check()
+			if !status.Running {
+				if err := galactaSvc.Launch(); err != nil {
+					slog.Error("galacta auto-launch failed", "error", err)
+				}
+			}
+		}()
 
 		srv.RegisterModuleRoutes(func(r chi.Router) {
-			claude.Register(r, claudeSvc, claudeMgr)
+			galacta.Register(r, galactaSvc)
 		})
 	}
 
@@ -119,16 +134,16 @@ func main() {
 
 	// Register MCP server
 	if cfg.Features.MCP {
-		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr, claudeSvc, claudeMgr)
+		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr)
 		if err != nil {
 			log.Fatalf("creating MCP server: %v", err)
 		}
 		srv.Router.Mount("/mcp", mcpSrv.Handler())
 	}
 
-	// Shutdown claude manager on exit
-	if claudeMgr != nil {
-		defer claudeMgr.Shutdown()
+	// Shutdown Galacta on exit (only if we spawned it)
+	if galactaSvc != nil {
+		defer galactaSvc.Shutdown()
 	}
 
 	// Start HTTP server

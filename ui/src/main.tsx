@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { Toast } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { registerClaudeModule } from './modules/claude/register';
+import { registerGalactaModule } from './modules/galacta/register';
 import { registerDatabaseModule } from './modules/database/register';
 import { registerSearchModule } from './modules/search/register';
 import { registerTerminalModule } from './modules/terminal/register';
@@ -13,7 +13,7 @@ import { registerActionsModule } from './modules/actions/register';
 import './styles/global.css';
 
 // Registration order determines activity bar order
-registerClaudeModule();
+registerGalactaModule();
 registerDatabaseModule();
 registerSearchModule();
 registerTerminalModule();

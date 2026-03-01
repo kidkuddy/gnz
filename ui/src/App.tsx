@@ -8,7 +8,7 @@ export function App() {
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace);
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
   const fetchConfig = useSettingsStore((s) => s.fetchConfig);
-  const [activeModule, setActiveModule] = React.useState('claude');
+  const [activeModule, setActiveModule] = React.useState('galacta');
   const [panelOpen, setPanelOpen] = React.useState(true);
 
   React.useEffect(() => {

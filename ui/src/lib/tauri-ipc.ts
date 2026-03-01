@@ -42,38 +42,10 @@ export const databaseApi = {
     apiPost<QueryResult>(`workspaces/${ws}/connections/${conn}/query`, { sql }),
 };
 
-// Claude API
-export interface HistoryMessage {
-  role: 'user' | 'assistant';
-  content: Record<string, unknown>[];
-}
-
-export const claudeApi = {
-  listSessions: (ws: string) => apiGet<ClaudeSession[]>(`workspaces/${ws}/claude/sessions`),
-  getSession: (ws: string, id: string) => apiGet<ClaudeSession>(`workspaces/${ws}/claude/sessions/${id}`),
-  createSession: (ws: string, data: CreateClaudeSessionInput) =>
-    apiPost<ClaudeSession>(`workspaces/${ws}/claude/sessions`, data),
-  updateSession: (ws: string, id: string, data: UpdateClaudeSessionInput) =>
-    apiPut<ClaudeSession>(`workspaces/${ws}/claude/sessions/${id}`, data),
-  deleteSession: (ws: string, id: string) => apiDelete(`workspaces/${ws}/claude/sessions/${id}`),
-  abort: (ws: string, id: string) =>
-    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/abort`, {}),
-  respond: (ws: string, id: string, toolUseId: string, result: string) =>
-    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/respond`, {
-      tool_use_id: toolUseId,
-      result,
-    }),
-  getSessionHistory: (ws: string, id: string) =>
-    apiGet<HistoryMessage[]>(`workspaces/${ws}/claude/sessions/${id}/history`),
-  sendToSession: (ws: string, id: string, text: string) =>
-    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/send`, { text }),
-  respondPermission: (ws: string, id: string, requestId: string, behavior: 'allow' | 'deny', updatedInput?: Record<string, unknown>, message?: string) =>
-    apiPost<{ status: string }>(`workspaces/${ws}/claude/sessions/${id}/permission`, {
-      request_id: requestId,
-      behavior,
-      updated_input: updatedInput,
-      message,
-    }),
+// Galacta API (lifecycle management via Go backend)
+export const galactaApi = {
+  status: () => apiGet<{ running: boolean; port: number; version?: string }>('galacta/status'),
+  launch: () => apiPost<{ ok: boolean; port?: number }>('galacta/launch', {}),
 };
 
 // Scratchpad API
@@ -382,34 +354,6 @@ export interface QueryResult {
   duration_ms: number;
 }
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk';
-
-export interface ClaudeSession {
-  id: string;
-  workspace_id: string;
-  name: string;
-  claude_session_id?: string;
-  working_directory: string;
-  model: string;
-  permission_mode: PermissionMode;
-  status: 'idle' | 'running' | 'error';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateClaudeSessionInput {
-  name?: string;
-  working_directory: string;
-  model?: string;
-  permission_mode?: PermissionMode;
-}
-
-export interface UpdateClaudeSessionInput {
-  name?: string;
-  model?: string;
-  permission_mode?: PermissionMode;
-}
-
 export interface AppConfig {
   supported_databases: string[];
   supported_outputs: string[];
@@ -419,6 +363,6 @@ export interface AppConfig {
     logs: boolean;
     dashboard: boolean;
     sql_editor: boolean;
-    claude: boolean;
+    galacta: boolean;
   };
 }

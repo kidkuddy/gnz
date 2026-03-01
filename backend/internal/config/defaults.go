@@ -19,7 +19,7 @@ func NewDefault() *Config {
 			Logs:      false,
 			Dashboard: false,
 			SQLEditor: true,
-			Claude:    true,
+			Galacta:   true,
 		},
 	}
 }

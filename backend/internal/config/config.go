@@ -22,7 +22,7 @@ type FeatureFlags struct {
 	Logs      bool `json:"logs"`
 	Dashboard bool `json:"dashboard"`
 	SQLEditor bool `json:"sql_editor"`
-	Claude    bool `json:"claude"`
+	Galacta   bool `json:"galacta"`
 }
 
 func Load(port int) (*Config, error) {
@@ -50,8 +50,8 @@ func Load(port int) (*Config, error) {
 	if v := os.Getenv("GNZ_FEATURE_SQL_EDITOR"); v != "" {
 		cfg.Features.SQLEditor = parseBool(v)
 	}
-	if v := os.Getenv("GNZ_FEATURE_CLAUDE"); v != "" {
-		cfg.Features.Claude = parseBool(v)
+	if v := os.Getenv("GNZ_FEATURE_GALACTA"); v != "" {
+		cfg.Features.Galacta = parseBool(v)
 	}
 
 	// Ensure DataDir exists
