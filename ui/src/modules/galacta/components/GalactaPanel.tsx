@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGalactaStore, type GalactaSession } from '../stores/galacta-store';
+import { useGalactaStore, type GalactaSession, type ExternalSession } from '../stores/galacta-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useTabStore } from '../../../stores/tab-store';
 import { parseWorkspaceSettings } from '../../../lib/tauri-ipc';
@@ -14,11 +14,16 @@ export function GalactaPanel() {
   const createSession = useGalactaStore(s => s.createSession);
   const deleteSession = useGalactaStore(s => s.deleteSession);
   const setActiveSession = useGalactaStore(s => s.setActiveSession);
-
-  const sessionNames = useGalactaStore(s => s.sessionNames);
+  const discoverSessions = useGalactaStore(s => s.discoverSessions);
+  const importSession = useGalactaStore(s => s.importSession);
 
   const activeWorkspace = useWorkspaceStore(s => s.activeWorkspace);
   const addTab = useTabStore(s => s.addTab);
+
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [externalSessions, setExternalSessions] = useState<ExternalSession[]>([]);
+  const [discovering, setDiscovering] = useState(false);
+  const [importing, setImporting] = useState<string | null>(null);
 
   // Check status on mount + poll every 10s
   useEffect(() => {
@@ -27,22 +32,53 @@ export function GalactaPanel() {
     return () => clearInterval(interval);
   }, []);
 
-  // Resolve workspace working dir
-  const workspaceDir = activeWorkspace
-    ? parseWorkspaceSettings(activeWorkspace.settings).working_directory
-    : undefined;
-
-  // Load sessions filtered by workspace dir when online
+  // Load sessions from gnz DB when online + workspace available
   useEffect(() => {
-    if (galactaStatus === 'online') loadSessions(workspaceDir);
-  }, [galactaStatus, workspaceDir]);
+    if (galactaStatus === 'online' && activeWorkspace) {
+      loadSessions(activeWorkspace.id);
+    }
+  }, [galactaStatus, activeWorkspace?.id]);
+
+  // Close discover panel when workspace changes
+  useEffect(() => {
+    setDiscoverOpen(false);
+    setExternalSessions([]);
+  }, [activeWorkspace?.id]);
+
+  const workingDir = () => {
+    if (!activeWorkspace) return '/tmp';
+    return parseWorkspaceSettings(activeWorkspace.settings).working_directory || '/tmp';
+  };
 
   const handleNewSession = async () => {
     if (!activeWorkspace) return;
-    const settings = parseWorkspaceSettings(activeWorkspace.settings);
-    const workingDir = settings.working_directory || '/tmp';
-    const session = await createSession(workingDir);
+    const session = await createSession(activeWorkspace.id, workingDir());
     if (session) {
+      openSessionTab(session);
+    }
+  };
+
+  const handleToggleDiscover = async () => {
+    if (discoverOpen) {
+      setDiscoverOpen(false);
+      setExternalSessions([]);
+      return;
+    }
+    if (!activeWorkspace) return;
+    setDiscoverOpen(true);
+    setDiscovering(true);
+    const found = await discoverSessions(activeWorkspace.id, workingDir());
+    setExternalSessions(found);
+    setDiscovering(false);
+  };
+
+  const handleImport = async (ext: ExternalSession) => {
+    if (!activeWorkspace) return;
+    setImporting(ext.id);
+    const session = await importSession(activeWorkspace.id, ext.id);
+    setImporting(null);
+    if (session) {
+      setExternalSessions(prev => prev.filter(s => s.id !== ext.id));
       openSessionTab(session);
     }
   };
@@ -51,16 +87,17 @@ export function GalactaPanel() {
     setActiveSession(session.id);
     addTab({
       id: `galacta-${session.id}`,
-      title: sessionNames[session.id] || session.working_dir.split('/').pop() || 'session',
+      title: session.name,
       type: 'galacta-session',
       moduleId: 'galacta',
-      data: { sessionId: session.id },
+      data: { sessionId: session.id, workspaceId: session.workspace_id },
     });
   };
 
   const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    await deleteSession(id);
+    if (!activeWorkspace) return;
+    await deleteSession(activeWorkspace.id, id);
   };
 
   return (
@@ -89,21 +126,39 @@ export function GalactaPanel() {
         </div>
 
         {galactaStatus === 'online' && (
-          <button
-            onClick={handleNewSession}
-            style={{
-              background: 'none',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '2px 8px',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-            }}
-          >
-            + new
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button
+              onClick={handleToggleDiscover}
+              title="Discover existing sessions"
+              style={{
+                background: discoverOpen ? 'var(--bg-active)' : 'none',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '2px 6px',
+                color: discoverOpen ? 'var(--accent)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+              }}
+            >
+              discover
+            </button>
+            <button
+              onClick={handleNewSession}
+              style={{
+                background: 'none',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '2px 8px',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+              }}
+            >
+              + new
+            </button>
+          </div>
         )}
       </div>
 
@@ -160,7 +215,64 @@ export function GalactaPanel() {
       {/* Session list */}
       {galactaStatus === 'online' && (
         <div style={{ flex: 1, overflow: 'auto', padding: '4px 0' }}>
-          {sessions.length === 0 && (
+
+          {/* Discover panel */}
+          {discoverOpen && (
+            <div style={{
+              borderBottom: '1px solid var(--border-subtle)',
+              paddingBottom: 4,
+              marginBottom: 4,
+            }}>
+              <div style={{
+                padding: '4px 12px 6px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                color: 'var(--text-tertiary)',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                External sessions
+              </div>
+
+              {discovering && (
+                <div style={{
+                  padding: '6px 12px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  color: 'var(--text-tertiary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}>
+                  <span style={{ animation: 'galacta-spin 0.8s steps(8) infinite' }}>⠋</span>
+                  Scanning…
+                </div>
+              )}
+
+              {!discovering && externalSessions.length === 0 && (
+                <div style={{
+                  padding: '6px 12px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  color: 'var(--text-tertiary)',
+                }}>
+                  No untracked sessions found
+                </div>
+              )}
+
+              {!discovering && externalSessions.map(ext => (
+                <ExternalSessionItem
+                  key={ext.id}
+                  session={ext}
+                  importing={importing === ext.id}
+                  onImport={() => handleImport(ext)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Tracked sessions */}
+          {sessions.length === 0 && !discoverOpen && (
             <div style={{
               padding: '16px 12px',
               fontFamily: 'var(--font-mono)',
@@ -176,7 +288,6 @@ export function GalactaPanel() {
             <SessionItem
               key={session.id}
               session={session}
-              displayName={sessionNames[session.id]}
               isActive={session.id === activeSessionId}
               onSelect={() => openSessionTab(session)}
               onDelete={(e) => handleDeleteSession(e, session.id)}
@@ -210,23 +321,97 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
+// ── External session item (discover) ─────────────────────────────────
+
+function ExternalSessionItem({
+  session,
+  importing,
+  onImport,
+}: {
+  session: ExternalSession;
+  importing: boolean;
+  onImport: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const dirLabel = session.working_dir.split('/').pop() || session.working_dir;
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '6px 12px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        background: hovered ? 'var(--bg-hover)' : 'transparent',
+      }}
+    >
+      <span style={{
+        width: 4,
+        height: 4,
+        borderRadius: '50%',
+        background: 'var(--text-disabled)',
+        flexShrink: 0,
+      }} />
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+          color: 'var(--text-secondary)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {dirLabel}
+        </div>
+        <div style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          color: 'var(--text-tertiary)',
+          marginTop: 1,
+        }}>
+          {session.id.slice(0, 8)}… · {(session.model || '').replace('claude-', '')}
+        </div>
+      </div>
+
+      <button
+        onClick={onImport}
+        disabled={importing}
+        style={{
+          background: 'none',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '1px 6px',
+          color: importing ? 'var(--text-disabled)' : 'var(--accent)',
+          cursor: importing ? 'default' : 'pointer',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          flexShrink: 0,
+        }}
+      >
+        {importing ? '…' : 'import'}
+      </button>
+    </div>
+  );
+}
+
 // ── Session item ──────────────────────────────────────────────────────
 
 function SessionItem({
   session,
-  displayName,
   isActive,
   onSelect,
   onDelete,
 }: {
   session: GalactaSession;
-  displayName?: string;
   isActive: boolean;
   onSelect: () => void;
   onDelete: (e: React.MouseEvent) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const dirName = displayName || session.working_dir.split('/').pop() || session.id.slice(0, 8);
+  const dirName = session.name;
 
   return (
     <div

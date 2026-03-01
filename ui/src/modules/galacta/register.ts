@@ -17,8 +17,9 @@ export function registerGalactaModule() {
         renderContent: () => React.createElement(GalactaSessionView),
         onRename: (tab, title) => {
           const sessionId = tab.data?.sessionId as string | undefined;
-          if (!sessionId) return;
-          useGalactaStore.getState().renameSession(sessionId, title);
+          const workspaceId = tab.data?.workspaceId as string | undefined;
+          if (!sessionId || !workspaceId) return;
+          useGalactaStore.getState().renameSession(workspaceId, sessionId, title);
         },
       },
     ],

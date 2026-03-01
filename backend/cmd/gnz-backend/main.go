@@ -92,7 +92,7 @@ func main() {
 		}()
 
 		srv.RegisterModuleRoutes(func(r chi.Router) {
-			galacta.Register(r, galactaSvc)
+			galacta.Register(r, galactaSvc, db)
 		})
 	}
 

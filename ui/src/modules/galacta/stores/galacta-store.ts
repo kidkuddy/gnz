@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getBackendPort } from '../../../lib/tauri-ipc';
+import { useTabStore } from '../.././../stores/tab-store';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -7,6 +8,8 @@ export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | '
 
 export interface GalactaSession {
   id: string;
+  workspace_id: string;
+  name: string;
   working_dir: string;
   model: string;
   permission_mode: PermissionMode;
@@ -15,6 +18,15 @@ export interface GalactaSession {
   created_at: string;
   updated_at: string;
   status: 'idle' | 'running' | 'error';
+}
+
+// A session that exists in Galacta but is not yet tracked by gnz.
+export interface ExternalSession {
+  id: string;
+  working_dir: string;
+  model: string;
+  status: string;
+  created_at?: string;
 }
 
 export interface Skill {
@@ -73,6 +85,7 @@ interface GalactaState {
   // Sessions
   sessions: GalactaSession[];
   activeSessionId: string | null;
+  activeWorkspaceId: string | null;
 
   // Turns per session
   turns: Record<string, Turn[]>;
@@ -85,9 +98,6 @@ interface GalactaState {
   // Skills
   skills: Skill[];
 
-  // Local name overrides (Galacta PATCH doesn't support name yet)
-  sessionNames: Record<string, string>;
-
   // Usage (rate limits + session cumulative)
   rateLimits: RateLimitWindow[];
   sessionUsage: Record<string, SessionUsage>;
@@ -95,10 +105,13 @@ interface GalactaState {
   // Actions
   checkStatus: () => Promise<void>;
   launchGalacta: () => Promise<void>;
-  loadSessions: (workingDir?: string) => Promise<void>;
-  createSession: (workingDir: string, model?: string, permissionMode?: PermissionMode) => Promise<GalactaSession | null>;
-  deleteSession: (id: string) => Promise<void>;
+  setActiveWorkspace: (workspaceId: string | null) => void;
+  loadSessions: (workspaceId: string) => Promise<void>;
+  createSession: (workspaceId: string, workingDir: string, model?: string, permissionMode?: PermissionMode) => Promise<GalactaSession | null>;
+  deleteSession: (workspaceId: string, id: string) => Promise<void>;
   setActiveSession: (id: string | null) => void;
+  discoverSessions: (workspaceId: string, workingDir: string) => Promise<ExternalSession[]>;
+  importSession: (workspaceId: string, id: string, name?: string) => Promise<GalactaSession | null>;
   sendMessage: (sessionId: string, text: string) => Promise<void>;
   abortStream: (sessionId: string) => void;
   respondPermission: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
@@ -107,7 +120,7 @@ interface GalactaState {
   loadSkills: (workingDir: string) => Promise<void>;
   loadRateLimits: () => Promise<void>;
   compactSession: (sessionId: string, keepMessages?: number) => Promise<void>;
-  renameSession: (sessionId: string, name: string) => void;
+  renameSession: (workspaceId: string, sessionId: string, name: string) => Promise<void>;
 
   // Helpers
   getSessionTurns: (sessionId: string) => Turn[];
@@ -126,6 +139,8 @@ function galactaUrl(port: number, path: string): string {
 function sanitizeSession(raw: any): GalactaSession {
   return {
     id: String(raw.id ?? ''),
+    workspace_id: String(raw.workspace_id ?? ''),
+    name: String(raw.name ?? 'New Session'),
     working_dir: String(raw.working_dir ?? ''),
     model: String(raw.model ?? ''),
     permission_mode: raw.permission_mode || 'default',
@@ -142,12 +157,12 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
   galactaPort: GALACTA_PORT,
   sessions: [],
   activeSessionId: null,
+  activeWorkspaceId: null,
   turns: {},
   streamingSessionId: null,
   abortControllers: {},
   planModeActive: false,
   skills: [],
-  sessionNames: {},
   rateLimits: [],
   sessionUsage: {},
 
@@ -182,13 +197,14 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
     }
   },
 
-  // ── Session CRUD (direct to Galacta) ──────────────────────────────
+  setActiveWorkspace: (workspaceId) => set({ activeWorkspaceId: workspaceId }),
 
-  loadSessions: async (workingDir?: string) => {
-    const { galactaPort: port } = get();
+  // ── Session CRUD (via gnz backend for persistence) ────────────────
+
+  loadSessions: async (workspaceId: string) => {
     try {
-      const qs = workingDir ? `?working_dir=${encodeURIComponent(workingDir)}` : '';
-      const resp = await fetch(galactaUrl(port, `/sessions${qs}`));
+      const port = await getBackendPort();
+      const resp = await fetch(`http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions`);
       const json = await resp.json();
       const raw = json.data ?? json;
       set({ sessions: Array.isArray(raw) ? raw.map(sanitizeSession) : [] });
@@ -197,14 +213,14 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
     }
   },
 
-  createSession: async (workingDir, model, permissionMode) => {
-    const { galactaPort: port } = get();
+  createSession: async (workspaceId: string, workingDir: string, model?: string, permissionMode?: PermissionMode) => {
     try {
+      const port = await getBackendPort();
       const body: Record<string, unknown> = { working_dir: workingDir };
       if (model) body.model = model;
       if (permissionMode) body.permission_mode = permissionMode;
 
-      const resp = await fetch(galactaUrl(port, '/sessions'), {
+      const resp = await fetch(`http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -213,26 +229,72 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
       const rawSession = json.data ?? json;
       if (!rawSession || typeof rawSession !== 'object' || !rawSession.id) return null;
       const session = sanitizeSession(rawSession);
-      set(s => ({ sessions: [...s.sessions, session] }));
+      set(s => ({ sessions: [session, ...s.sessions] }));
       return session;
     } catch {
       return null;
     }
   },
 
-  deleteSession: async (id) => {
-    const { galactaPort: port } = get();
+  deleteSession: async (workspaceId: string, id: string) => {
     try {
-      await fetch(galactaUrl(port, `/sessions/${id}`), { method: 'DELETE' });
+      const port = await getBackendPort();
+      await fetch(`http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions/${id}`, {
+        method: 'DELETE',
+      });
       set(s => ({
         sessions: s.sessions.filter(x => x.id !== id),
         turns: (() => { const t = { ...s.turns }; delete t[id]; return t; })(),
         activeSessionId: s.activeSessionId === id ? null : s.activeSessionId,
       }));
+      // Also close any open tab for this session
+      const tabStore = useTabStore.getState();
+      const tabId = `galacta-${id}`;
+      if (tabStore.tabs.find(t => t.id === tabId)) {
+        tabStore.removeTab(tabId);
+      }
     } catch { /* ignore */ }
   },
 
   setActiveSession: (id) => set({ activeSessionId: id }),
+
+  discoverSessions: async (workspaceId, workingDir) => {
+    try {
+      const port = await getBackendPort();
+      const resp = await fetch(
+        `http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions/discover?working_dir=${encodeURIComponent(workingDir)}`
+      );
+      const json = await resp.json();
+      const raw = json.data ?? json;
+      return Array.isArray(raw) ? raw : [];
+    } catch (err) {
+      console.warn('[galacta:discoverSessions] Failed:', err);
+      return [];
+    }
+  },
+
+  importSession: async (workspaceId, id, name) => {
+    try {
+      const port = await getBackendPort();
+      const resp = await fetch(
+        `http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions/import`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, name }),
+        }
+      );
+      const json = await resp.json();
+      const rawSession = json.data ?? json;
+      if (!rawSession?.id) return null;
+      const session = sanitizeSession(rawSession);
+      set(s => ({ sessions: [session, ...s.sessions] }));
+      return session;
+    } catch (err) {
+      console.warn('[galacta:importSession] Failed:', err);
+      return null;
+    }
+  },
 
   // ── Message streaming (POST SSE to Galacta) ──────────────────────
 
@@ -524,8 +586,28 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
     });
   },
 
-  renameSession: (sessionId, name) => {
-    set(s => ({ sessionNames: { ...s.sessionNames, [sessionId]: name } }));
+  renameSession: async (workspaceId: string, sessionId: string, name: string) => {
+    try {
+      const port = await getBackendPort();
+      const resp = await fetch(`http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json = await resp.json();
+      const updated = json.data ?? json;
+      if (updated?.id) {
+        const session = sanitizeSession(updated);
+        set(s => ({
+          sessions: s.sessions.map(x => x.id === sessionId ? session : x),
+        }));
+        // Sync tab title
+        const tabStore = useTabStore.getState();
+        tabStore.renameTab(`galacta-${sessionId}`, name);
+      }
+    } catch (err) {
+      console.warn('[galacta:renameSession] Failed:', err);
+    }
   },
 
   // ── Helpers ───────────────────────────────────────────────────────
