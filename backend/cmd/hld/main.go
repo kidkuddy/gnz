@@ -19,6 +19,7 @@ const (
 	colorCyan   = "\033[36m"
 	colorDim    = "\033[2m"
 	colorYellow = "\033[33m"
+	colorBold   = "\033[1m"
 )
 
 func main() {
@@ -33,7 +34,7 @@ func main() {
 		cmdRun(os.Args[2:])
 	case "session":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: hld session [create|list|messages] ...")
+			fmt.Fprintln(os.Stderr, "usage: hld session [create|list|messages|delete] ...")
 			os.Exit(1)
 		}
 		switch os.Args[2] {
@@ -47,6 +48,12 @@ func main() {
 				os.Exit(1)
 			}
 			cmdSessionMessages(os.Args[3])
+		case "delete":
+			if len(os.Args) < 4 {
+				fmt.Fprintln(os.Stderr, "usage: hld session delete <session-id>")
+				os.Exit(1)
+			}
+			cmdSessionDelete(os.Args[3])
 		default:
 			fmt.Fprintf(os.Stderr, "unknown session subcommand: %s\n", os.Args[2])
 			os.Exit(1)
@@ -62,18 +69,25 @@ func main() {
 
 func printUsage() {
 	fmt.Fprintln(os.Stderr, `Usage:
-  hld run [flags] "message"         Run a message in a session
+  hld run [flags] ["message"]       Start interactive session (or one-shot with message)
   hld session create [flags]        Create a new session
   hld session list                  List all sessions
   hld session messages <id>         Show message history
+  hld session delete <id>           Delete a session
   hld health                        Check Herald daemon health
 
 Flags for run:
-  --session, -s    Session UUID (creates new if omitted)
+  --session, -s    Resume existing session by UUID
   --model, -m      Model override
   --dir, -d        Working directory (default: cwd)
   --mode           Permission mode (default: default)
-  --herald         Herald daemon URL (default: http://localhost:9090)`)
+  --herald         Herald daemon URL (default: http://localhost:9090)
+
+Interactive commands (during session):
+  /quit, /exit     End the session
+  /history         Show conversation history
+  /session         Show session info
+  /clear           Clear screen`)
 }
 
 func heraldURL() string {
@@ -83,77 +97,140 @@ func heraldURL() string {
 	return "http://localhost:9090"
 }
 
-func cmdRun(args []string) {
-	var session, model, dir, mode, message string
-	base := heraldURL()
+// runFlags holds parsed flags for the run command.
+type runFlags struct {
+	session string
+	model   string
+	dir     string
+	mode    string
+	base    string
+	message string
+}
 
+func parseRunFlags(args []string) runFlags {
+	f := runFlags{base: heraldURL()}
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--session", "-s":
 			i++
 			if i < len(args) {
-				session = args[i]
+				f.session = args[i]
 			}
 		case "--model", "-m":
 			i++
 			if i < len(args) {
-				model = args[i]
+				f.model = args[i]
 			}
 		case "--dir", "-d":
 			i++
 			if i < len(args) {
-				dir = args[i]
+				f.dir = args[i]
 			}
 		case "--mode":
 			i++
 			if i < len(args) {
-				mode = args[i]
+				f.mode = args[i]
 			}
 		case "--herald":
 			i++
 			if i < len(args) {
-				base = args[i]
+				f.base = args[i]
 			}
 		default:
-			message = args[i]
+			f.message = args[i]
 		}
 	}
-
-	if message == "" {
-		fmt.Fprintln(os.Stderr, "error: message is required")
-		os.Exit(1)
+	if f.dir == "" {
+		f.dir, _ = os.Getwd()
 	}
+	return f
+}
 
-	if dir == "" {
-		dir, _ = os.Getwd()
-	}
+func cmdRun(args []string) {
+	flags := parseRunFlags(args)
 
-	// Create session if needed
+	// Ensure or create session
+	session := flags.session
 	if session == "" {
-		body := map[string]string{"working_dir": dir}
-		if model != "" {
-			body["model"] = model
-		}
-		if mode != "" {
-			body["permission_mode"] = mode
-		}
-		resp, err := postJSON(base+"/sessions", body)
-		if err != nil {
-			fatal("creating session: %v", err)
-		}
-		data, ok := resp["data"].(map[string]any)
-		if !ok {
-			fatal("unexpected response creating session")
-		}
-		session = data["id"].(string)
-		fmt.Fprintf(os.Stderr, "%sSession: %s%s\n", colorDim, session, colorReset)
+		session = createSession(flags)
+	} else {
+		// Resuming — print old messages
+		printSessionHistory(flags.base, session)
 	}
 
-	// Run message with SSE streaming
+	fmt.Fprintf(os.Stderr, "%sSession: %s%s\n", colorDim, session, colorReset)
+
+	// If a message was given on the command line, send it
+	if flags.message != "" {
+		streamMessage(flags.base, session, flags.message)
+	}
+
+	// Enter interactive loop
+	interactiveLoop(flags.base, session)
+}
+
+func createSession(flags runFlags) string {
+	body := map[string]string{"working_dir": flags.dir}
+	if flags.model != "" {
+		body["model"] = flags.model
+	}
+	if flags.mode != "" {
+		body["permission_mode"] = flags.mode
+	}
+	resp, err := postJSON(flags.base+"/sessions", body)
+	if err != nil {
+		fatal("creating session: %v", err)
+	}
+	data, ok := resp["data"].(map[string]any)
+	if !ok {
+		fatal("unexpected response creating session")
+	}
+	return data["id"].(string)
+}
+
+func interactiveLoop(base, session string) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Fprintf(os.Stderr, "\n%s> %s", colorBold, colorReset)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			// EOF (ctrl-d)
+			fmt.Fprintln(os.Stderr)
+			return
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Handle slash commands
+		switch {
+		case line == "/quit" || line == "/exit":
+			return
+		case line == "/history":
+			printSessionHistory(base, session)
+			continue
+		case line == "/session":
+			printSessionInfo(base, session)
+			continue
+		case line == "/clear":
+			fmt.Print("\033[2J\033[H")
+			continue
+		case strings.HasPrefix(line, "/"):
+			fmt.Fprintf(os.Stderr, "%sunknown command: %s%s\n", colorDim, line, colorReset)
+			continue
+		}
+
+		streamMessage(base, session, line)
+	}
+}
+
+func streamMessage(base, session, message string) {
 	reqBody, _ := json.Marshal(map[string]string{"message": message})
 	req, err := http.NewRequest("POST", base+"/sessions/"+session+"/message", bytes.NewReader(reqBody))
 	if err != nil {
-		fatal("creating request: %v", err)
+		fmt.Fprintf(os.Stderr, "%serror: %v%s\n", colorRed, err, colorReset)
+		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
@@ -161,28 +238,27 @@ func cmdRun(args []string) {
 	client := &http.Client{Timeout: 30 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
-		fatal("connecting to Herald: %v", err)
+		fmt.Fprintf(os.Stderr, "%serror connecting to Herald: %v%s\n", colorRed, err, colorReset)
+		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		fatal("HTTP %d: %s", resp.StatusCode, string(body))
+		fmt.Fprintf(os.Stderr, "%serror: HTTP %d: %s%s\n", colorRed, resp.StatusCode, string(body), colorReset)
+		return
 	}
 
-	// Parse SSE stream
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			handleSSEEvent(data, base, session)
 		}
 	}
-
 	fmt.Println()
 }
 
@@ -216,7 +292,6 @@ func handleSSEEvent(data string, base string, session string) {
 		if isError {
 			fmt.Fprintf(os.Stderr, "%s[%s error] %s%s\n", colorRed, tool, output, colorReset)
 		} else {
-			// Indent output
 			lines := strings.Split(output, "\n")
 			maxLines := 20
 			if len(lines) > maxLines {
@@ -258,6 +333,93 @@ func handleSSEEvent(data string, base string, session string) {
 	case "error":
 		msg, _ := event["message"].(string)
 		fmt.Fprintf(os.Stderr, "%s[error] %s%s\n", colorRed, msg, colorReset)
+	}
+}
+
+func printSessionHistory(base, session string) {
+	resp, err := getJSON(base + "/sessions/" + session + "/messages")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%serror loading history: %v%s\n", colorRed, err, colorReset)
+		return
+	}
+	data, ok := resp["data"].(map[string]any)
+	if !ok {
+		return
+	}
+	messages, ok := data["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "%s--- conversation history (%d messages) ---%s\n", colorDim, len(messages), colorReset)
+
+	for _, m := range messages {
+		msg, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := msg["Role"].(string)
+		contentStr, _ := msg["Content"].(string)
+
+		var content []map[string]any
+		if err := json.Unmarshal([]byte(contentStr), &content); err != nil {
+			continue
+		}
+
+		switch role {
+		case "user":
+			for _, block := range content {
+				blockType, _ := block["type"].(string)
+				if blockType == "text" {
+					text, _ := block["text"].(string)
+					fmt.Fprintf(os.Stderr, "%s> %s%s\n", colorBold, text, colorReset)
+				} else if blockType == "tool_result" {
+					toolID, _ := block["tool_use_id"].(string)
+					text, _ := block["content"].(string)
+					isErr, _ := block["is_error"].(bool)
+					if isErr {
+						fmt.Fprintf(os.Stderr, "%s  [result %s] error: %s%s\n", colorDim, shortID(toolID), truncate(text, 100), colorReset)
+					} else {
+						fmt.Fprintf(os.Stderr, "%s  [result %s] %s%s\n", colorDim, shortID(toolID), truncate(text, 100), colorReset)
+					}
+				}
+			}
+		case "assistant":
+			for _, block := range content {
+				blockType, _ := block["type"].(string)
+				if blockType == "text" {
+					text, _ := block["text"].(string)
+					fmt.Fprintf(os.Stderr, "%s\n", text)
+				} else if blockType == "tool_use" {
+					name, _ := block["name"].(string)
+					fmt.Fprintf(os.Stderr, "%s[%s]%s\n", colorCyan, name, colorReset)
+				}
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "%s--- end history ---%s\n\n", colorDim, colorReset)
+}
+
+func printSessionInfo(base, session string) {
+	resp, err := getJSON(base + "/sessions/" + session)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%serror: %v%s\n", colorRed, err, colorReset)
+		return
+	}
+	data, ok := resp["data"].(map[string]any)
+	if !ok {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "  ID:     %s\n", data["id"])
+	fmt.Fprintf(os.Stderr, "  Model:  %s\n", data["model"])
+	fmt.Fprintf(os.Stderr, "  Dir:    %s\n", data["working_dir"])
+	fmt.Fprintf(os.Stderr, "  Mode:   %s\n", data["permission_mode"])
+	fmt.Fprintf(os.Stderr, "  Status: %s\n", data["status"])
+	if usage, ok := data["usage"].(map[string]any); ok {
+		in, _ := usage["TotalInputTokens"].(float64)
+		out, _ := usage["TotalOutputTokens"].(float64)
+		msgs, _ := usage["MessageCount"].(float64)
+		fmt.Fprintf(os.Stderr, "  Tokens: %d in, %d out (%d messages)\n", int(in), int(out), int(msgs))
 	}
 }
 
@@ -333,18 +495,55 @@ func cmdSessionList() {
 	if err != nil {
 		fatal("listing sessions: %v", err)
 	}
-	out, _ := json.MarshalIndent(resp, "", "  ")
-	fmt.Println(string(out))
+	data, ok := resp["data"].([]any)
+	if !ok || len(data) == 0 {
+		fmt.Println("No sessions.")
+		return
+	}
+	for _, s := range data {
+		sess, ok := s.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := sess["id"].(string)
+		model, _ := sess["model"].(string)
+		dir, _ := sess["working_dir"].(string)
+		status, _ := sess["status"].(string)
+		mode, _ := sess["permission_mode"].(string)
+
+		var tokenInfo string
+		if usage, ok := sess["usage"].(map[string]any); ok {
+			in, _ := usage["TotalInputTokens"].(float64)
+			out, _ := usage["TotalOutputTokens"].(float64)
+			msgs, _ := usage["MessageCount"].(float64)
+			tokenInfo = fmt.Sprintf("%din/%dout %dmsgs", int(in), int(out), int(msgs))
+		}
+		fmt.Fprintf(os.Stderr, "  %s  %s%-7s%s  %s  %s  %s  %s\n",
+			shortID(id), colorGreen, status, colorReset, mode, model, dir, tokenInfo)
+	}
 }
 
 func cmdSessionMessages(id string) {
 	base := heraldURL()
-	resp, err := getJSON(base + "/sessions/" + id + "/messages")
+	printSessionHistory(base, id)
+}
+
+func cmdSessionDelete(id string) {
+	base := heraldURL()
+	req, err := http.NewRequest("DELETE", base+"/sessions/"+id, nil)
 	if err != nil {
-		fatal("listing messages: %v", err)
+		fatal("deleting session: %v", err)
 	}
-	out, _ := json.MarshalIndent(resp, "", "  ")
-	fmt.Println(string(out))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fatal("deleting session: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		fatal("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	fmt.Fprintf(os.Stderr, "Deleted session %s\n", shortID(id))
 }
 
 func cmdHealth() {
@@ -390,4 +589,19 @@ func getJSON(url string) (map[string]any, error) {
 func fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "error: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+func shortID(id string) string {
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
+}
+
+func truncate(s string, max int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
 }
