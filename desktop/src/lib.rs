@@ -3,7 +3,7 @@ mod sidecar;
 
 use commands::BackendState;
 use std::sync::Mutex;
-use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 struct SidecarState(Mutex<Option<sidecar::SidecarManager>>);
@@ -37,7 +37,19 @@ pub fn run() {
                 client: reqwest::Client::new(),
             });
 
-            // Build native File menu
+            // macOS app menu (About, Hide, Quit, etc.)
+            #[cfg(target_os = "macos")]
+            let app_menu = Submenu::with_items(app, "gnz", true, &[
+                &PredefinedMenuItem::about(app, None, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, None)?,
+                &PredefinedMenuItem::hide_others(app, None)?,
+                &PredefinedMenuItem::show_all(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::quit(app, None)?,
+            ])?;
+
+            // File menu
             let new_window_item = MenuItem::with_id(
                 app,
                 "new-window",
@@ -46,7 +58,23 @@ pub fn run() {
                 Some("CmdOrCtrl+Shift+N"),
             )?;
             let file_menu = Submenu::with_items(app, "File", true, &[&new_window_item])?;
-            let menu = Menu::with_items(app, &[&file_menu])?;
+
+            // Edit menu — required for WKWebView text editing shortcuts (Cut/Copy/Paste/Undo)
+            let edit_menu = Submenu::with_items(app, "Edit", true, &[
+                &PredefinedMenuItem::undo(app, None)?,
+                &PredefinedMenuItem::redo(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::cut(app, None)?,
+                &PredefinedMenuItem::copy(app, None)?,
+                &PredefinedMenuItem::paste(app, None)?,
+                &PredefinedMenuItem::select_all(app, None)?,
+            ])?;
+
+            #[cfg(target_os = "macos")]
+            let menu = Menu::with_items(app, &[&app_menu, &file_menu, &edit_menu])?;
+            #[cfg(not(target_os = "macos"))]
+            let menu = Menu::with_items(app, &[&file_menu, &edit_menu])?;
+
             app.set_menu(menu)?;
 
             app.on_menu_event(|app, event| {
