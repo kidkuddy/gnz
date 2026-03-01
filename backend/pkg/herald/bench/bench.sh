@@ -625,12 +625,16 @@ print_phase_summary() {
         fi
         echo ""
 
-        # RSS
-        printf "%-12s %-12s %-12s" "RSS avg" "${c_rss} MB" "${h_rss} MB*"
-        if [[ "$SKIP_CLAUDE" == false && "$SKIP_HERALD" == false && "$c_rss" != "—" && "$h_rss" != "—" ]]; then
-            diff_rss=$((${c_rss:-0} - ${h_rss:-0})) 2>/dev/null || diff_rss="?"
-            if [[ "$h_rss" != "0" && "${h_rss:-0}" -gt 0 ]] 2>/dev/null; then
-                rss_ratio=$(echo "scale=1; $c_rss / $h_rss" | bc 2>/dev/null || echo "?")
+        # RSS — for Herald, show total = daemon peak + hld client
+        h_total_rss="—"
+        if [[ "$SKIP_HERALD" == false && "$h_rss" != "—" && "$h_daemon_peak" != "—" ]]; then
+            h_total_rss=$((${h_rss:-0} + ${h_daemon_peak:-0}))
+        fi
+        printf "%-12s %-12s %-12s" "RSS total" "${c_rss} MB" "${h_total_rss} MB"
+        if [[ "$SKIP_CLAUDE" == false && "$SKIP_HERALD" == false && "$c_rss" != "—" && "$h_total_rss" != "—" ]]; then
+            if [[ "$h_total_rss" != "0" && "${h_total_rss:-0}" -gt 0 ]] 2>/dev/null; then
+                diff_rss=$((${c_rss:-0} - ${h_total_rss:-0})) 2>/dev/null || diff_rss="?"
+                rss_ratio=$(echo "scale=1; $c_rss / $h_total_rss" | bc 2>/dev/null || echo "?")
                 printf " %-12s %-8s" "-${diff_rss} MB" "${rss_ratio}x"
             fi
         fi
@@ -645,7 +649,7 @@ print_phase_summary() {
         echo ""
 
         if [[ "$SKIP_HERALD" == false ]]; then
-            echo "* Herald RSS = hld client only. Daemon peak: ${h_daemon_peak:-?} MB"
+            echo "  (Herald: daemon ${h_daemon_peak:-?} MB + hld client ${h_rss:-?} MB)"
         fi
 
         echo ""
@@ -676,10 +680,13 @@ print_parallel_summary() {
         fi
 
         # Herald averages for this concurrency level
-        h_wall="—" h_rss_total="—" h_daemon_peak="—"
+        h_wall="—" h_rss_clients="—" h_daemon_peak="—" h_total_mb="—"
         if [[ "$SKIP_HERALD" == false ]]; then
             h_wall=$(awk -F, -v c="$C" '$1=="parallel" && $2=="simple_text" && $4==c {sum+=$5; n++} END {if(n>0) printf "%.2f", sum/n; else print "—"}' "$HERALD_CSV")
+            h_rss_clients_raw=$(awk -F, -v c="$C" '$1=="parallel" && $2=="simple_text" && $4==c {sum+=$8; n++} END {if(n>0) printf "%.0f", sum/n; else print "0"}' "$HERALD_CSV")
+            h_rss_clients_mb=$(echo "$h_rss_clients_raw" | awk '{printf "%.0f", $1/1048576}')
             h_daemon_peak=$(awk -F, -v c="$C" '$1=="parallel" && $2=="simple_text" && $4==c {if($11+0>max+0) max=$11} END {printf "%.0f", max/1024}' "$HERALD_CSV")
+            h_total_mb=$((h_rss_clients_mb + h_daemon_peak))
         fi
 
         # Wall time row
@@ -689,21 +696,18 @@ print_parallel_summary() {
         fi
         printf "%-14s %-14s %-14s %-10s\n" "C=$C wall" "${c_wall}s" "${h_wall}s" "${wall_speedup}x"
 
-        # RSS row
+        # RSS row — total for both sides
         if [[ "$SKIP_CLAUDE" == false && "$SKIP_HERALD" == false ]]; then
             rss_speedup="—"
-            if [[ "$h_daemon_peak" != "—" && "$h_daemon_peak" != "0" && "${c_rss_mb:-0}" -gt 0 ]] 2>/dev/null; then
-                rss_speedup=$(echo "scale=1; $c_rss_mb / $h_daemon_peak" | bc 2>/dev/null || echo "?")
+            if [[ "$h_total_mb" != "—" && "$h_total_mb" != "0" && "${c_rss_mb:-0}" -gt 0 ]] 2>/dev/null; then
+                rss_speedup=$(echo "scale=1; $c_rss_mb / $h_total_mb" | bc 2>/dev/null || echo "?")
             fi
-            printf "%-14s %-14s %-14s %-10s\n" "C=$C RSS tot" "${c_rss_mb:-?} MB" "${h_daemon_peak} MB*" "${rss_speedup}x"
+            printf "%-14s %-14s %-14s %-10s\n" "C=$C RSS tot" "${c_rss_mb:-?} MB" "${h_total_mb} MB" "${rss_speedup}x"
+            printf "%-14s %-14s %-14s\n" "" "(${C}x node)" "(daemon ${h_daemon_peak}+cli ${h_rss_clients_mb})"
         fi
     done
 
     echo ""
-
-    if [[ "$SKIP_HERALD" == false ]]; then
-        echo "* Herald: single daemon. Claude: N separate Node processes"
-    fi
 
     # Throughput line for highest concurrency
     local max_c="${C_LEVELS[${#C_LEVELS[@]}-1]}"

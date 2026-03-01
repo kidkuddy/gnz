@@ -8,7 +8,20 @@
 
 ## TL;DR
 
-Herald is **6.5x faster** on simple prompts and uses **25x less memory** than Claude Code. At 8 concurrent requests, Herald handles **6.1 req/s** vs Claude's **0.67 req/s** — a **9.1x throughput advantage** — while consuming **78x less memory**.
+Herald is **6.5x faster** on simple prompts. At 8 concurrent requests, Herald delivers **6.1 req/s** vs Claude's **0.67 req/s** — a **9x throughput advantage**. Memory tells the real story: Herald's full stack (daemon + 8 hld clients) uses ~121 MB vs Claude's 2.2 GB — an **18x reduction**.
+
+---
+
+## What's Being Measured
+
+Both tools call the same Anthropic API. The difference is architecture:
+
+- **Claude Code**: Spawns a full Node.js process per invocation (~300 MB, ~5-8s startup). Each process loads the runtime, parses tools, and manages its own API connection.
+- **Herald**: Persistent Go daemon (~23 MB) handles all sessions. The `hld` CLI (~12 MB) is a thin RPC client that sends the prompt to the daemon and streams output back.
+
+**Memory accounting:**
+- **Claude**: RSS of the Node process (includes runtime, V8 heap, tool definitions)
+- **Herald total**: daemon peak RSS + hld client RSS. The daemon is amortized across all sessions — it's running whether you send 1 or 100 requests.
 
 ---
 
@@ -16,56 +29,65 @@ Herald is **6.5x faster** on simple prompts and uses **25x less memory** than Cl
 
 Fresh process per prompt. No prior session state.
 
-| Scenario | Claude | Herald | Speedup | Claude RSS | Herald RSS | Memory Ratio |
-|----------|--------|--------|---------|------------|------------|-------------|
-| simple_text | 7.54s | 1.16s | **6.5x** | 297 MB | 12 MB | 24.7x |
-| file_listing | 17.56s | 5.95s | **3.0x** | 309 MB | 11 MB | 28.0x |
-| read_summarize | 14.54s | 4.34s | **3.4x** | 295 MB | 11 MB | 26.8x |
-| heavy_reasoning | 23.71s | 16.32s | **1.5x** | 333 MB | 12 MB | 27.7x |
+| Scenario | Claude | Herald | Speedup | Claude RSS | Herald Total | Ratio |
+|----------|--------|--------|---------|------------|-------------|-------|
+| simple_text | 7.54s | 1.16s | **6.5x** | 297 MB | 30 MB (18+12) | 9.9x |
+| file_listing | 17.56s | 5.95s | **3.0x** | 309 MB | 30 MB (19+11) | 10.3x |
+| read_summarize | 14.54s | 4.34s | **3.4x** | 295 MB | 34 MB (23+11) | 8.7x |
+| heavy_reasoning | 23.71s | 16.32s | **1.5x** | 333 MB | 34 MB (22+12) | 9.8x |
 
-Herald's daemon process peaked at ~23 MB across all scenarios. Claude spawns a full Node.js process each time (~300 MB).
+Herald total = daemon peak + hld client. The daemon cost is amortized — it's the same ~23 MB process regardless of workload.
 
-The speedup is most pronounced on simple prompts where startup overhead dominates. On heavy_reasoning, the API call itself takes 15s+ so startup cost matters less — but Herald still wins by ~7s.
+The speedup narrows on heavy_reasoning because the API response itself takes 15s+, so startup overhead (Herald's main advantage) matters less proportionally.
 
 ## Warm Session
 
-Second message sent to an existing session.
+Second message sent to an existing session. Herald reuses the daemon session in-memory. Claude uses `--continue` but still spawns a fresh Node process.
 
-| Scenario | Claude | Herald | Speedup | Claude RSS | Herald RSS | Memory Ratio |
-|----------|--------|--------|---------|------------|------------|-------------|
-| simple_text | 8.37s | 0.95s | **8.8x** | 275 MB | 11 MB | 25.0x |
-| file_listing | 13.31s | 3.48s | **3.8x** | 331 MB | 11 MB | 30.0x |
-| read_summarize | 10.70s | 2.72s | **3.9x** | 281 MB | 11 MB | 25.5x |
-| heavy_reasoning | 17.44s | 7.92s | **2.2x** | 294 MB | 12 MB | 24.5x |
+| Scenario | Claude | Herald | Speedup | Claude RSS | Herald Total | Ratio |
+|----------|--------|--------|---------|------------|-------------|-------|
+| simple_text | 8.37s | 0.95s | **8.8x** | 275 MB | 34 MB (22+12) | 8.1x |
+| file_listing | 13.31s | 3.48s | **3.8x** | 331 MB | 35 MB (23+12) | 9.5x |
+| read_summarize | 10.70s | 2.72s | **3.9x** | 281 MB | 32 MB (21+11) | 8.8x |
+| heavy_reasoning | 17.44s | 7.92s | **2.2x** | 294 MB | 35 MB (23+12) | 8.4x |
 
-Herald's warm session performance is notably better than cold — simple_text drops from 1.16s to 0.95s (session already loaded in daemon memory). Claude with `--continue` still has to spin up a full Node process each time, so warm vs cold makes little difference for it.
+Warm sessions help Herald more than Claude. Herald's daemon already has the session loaded — no session creation overhead. Claude still boots a full Node runtime regardless.
 
 ## Parallel / Concurrent (simple_text)
 
-N simultaneous requests fired at the same time.
+N simultaneous requests fired at once. This is the real test of daemon architecture.
 
-| Concurrency | Claude Wall | Herald Wall | Speedup | Claude RSS Total | Herald Daemon | Memory Ratio |
-|-------------|-------------|-------------|---------|------------------|---------------|-------------|
-| C=2 | 7.77s | 1.61s | **4.8x** | 558 MB | 23 MB | 24.2x |
-| C=4 | 13.26s | 1.42s | **9.3x** | 1,108 MB | 25 MB | 44.3x |
-| C=8 | 12.00s | 1.31s | **9.1x** | 2,178 MB | 28 MB | 77.7x |
+| Concurrency | Claude Wall | Herald Wall | Speedup | Claude RSS | Herald Total | Ratio |
+|-------------|-------------|-------------|---------|------------|-------------|-------|
+| C=2 | 7.77s | 1.61s | **4.8x** | 558 MB | 46 MB (23+23) | 12.1x |
+| C=4 | 13.26s | 1.42s | **9.3x** | 1,108 MB | 71 MB (25+46) | 15.6x |
+| C=8 | 12.00s | 1.31s | **9.1x** | 2,178 MB | 121 MB (28+93) | 18.0x |
 
 | Metric | Claude | Herald |
 |--------|--------|--------|
 | C=8 Throughput | 0.67 req/s | 6.10 req/s |
 
-This is where Herald's daemon architecture really shines:
-- **Claude** spawns 8 separate Node processes = 8 x ~270 MB = 2.2 GB total
-- **Herald** runs all 8 sessions in goroutines within a single ~28 MB daemon
-- Herald wall time is essentially flat (1.3-1.6s) regardless of concurrency — the API calls run in parallel within the daemon
-- Claude wall time scales roughly linearly with concurrency as processes compete for resources
+**Herald total** = daemon peak + sum of N hld client processes. The daemon stays under 30 MB even at C=8 because sessions are lightweight goroutines. The hld clients are ~12 MB each but short-lived.
+
+**Claude** scales linearly in memory: 8 Node processes = 8 x 270 MB = 2.2 GB. On a 16 GB machine, you'd hit memory pressure around ~40 concurrent Claude processes.
+
+Herald wall time is nearly flat (~1.3s) regardless of concurrency — API calls fan out in parallel goroutines within the daemon. Claude wall time grows as processes compete for resources.
+
+## CPU Comparison
+
+| Phase | Claude CPU/run | Herald CPU/run |
+|-------|---------------|----------------|
+| Cold (simple) | 5.30s | 0.02s |
+| Warm (simple) | 7.09s | 0.01s |
+
+Herald's CPU usage is negligible. The `hld` client is a compiled Go binary that just does HTTP — no runtime to boot, no JavaScript to parse, no V8 to warm up. All the actual compute happens server-side in the Anthropic API.
 
 ## Key Takeaways
 
-1. **Startup cost is Herald's biggest win.** Claude's Node.js process takes ~5-8s to boot. Herald's thin Go client (`hld`) takes <0.1s — the daemon is already running.
+1. **Startup cost is Herald's biggest win.** Claude's Node.js process takes ~5-8s to boot. Herald's Go CLI takes <0.1s — the daemon is already running. This makes Herald **6-9x faster** for simple operations.
 
-2. **Memory efficiency scales with usage.** One Herald daemon at 28 MB serves 8 concurrent requests. Claude would use 2.2 GB for the same workload. On a 16 GB machine, you'd hit memory pressure at ~40 concurrent Claude processes but could comfortably run 100+ Herald sessions.
+2. **Memory efficiency scales with concurrency.** At C=8, Herald uses 121 MB total (daemon + 8 clients) vs Claude's 2.2 GB. The daemon is amortized — adding more sessions costs ~12 MB per hld client, not ~300 MB per Node process.
 
-3. **CPU usage is negligible for Herald.** The `hld` client uses ~0.01s CPU vs Claude's 5-8s. All the compute happens server-side (API call). Claude's Node runtime burns CPU on JavaScript parsing, tool execution setup, and IPC overhead.
+3. **Throughput scales naturally.** Herald's daemon handles concurrent sessions as goroutines. At C=8: 6.1 req/s vs 0.67 req/s. The gap would widen further at higher concurrency levels.
 
-4. **Warm sessions help Herald more than Claude.** Herald can skip session creation (it's already in daemon memory). Claude still has to spawn a fresh Node process regardless.
+4. **For long-running API calls, the gap narrows.** Heavy reasoning (16s API response) shows only 1.5x speedup — because the API latency dominates, not the tool overhead. Herald's advantage is most dramatic on short, frequent operations.
