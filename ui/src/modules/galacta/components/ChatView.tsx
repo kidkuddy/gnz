@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGalactaStore, type GalactaSession, type SessionUsage, type Turn, type TurnEvent } from '../stores/galacta-store';
+import { useGalactaStore, type GalactaSession, type PermissionMode, type SessionUsage, type Turn, type TurnEvent } from '../stores/galacta-store';
 import { ToolBlock } from './ToolBlock';
 import { PermissionPrompt } from './PermissionPrompt';
 import { QuestionPrompt } from './QuestionPrompt';
@@ -11,13 +11,15 @@ import { SessionInput } from './SessionInput';
 
 interface ChatViewProps {
   session: GalactaSession;
+  readOnly?: boolean;
 }
 
-export function ChatView({ session }: ChatViewProps) {
+export function ChatView({ session, readOnly = false }: ChatViewProps) {
   const turns = useGalactaStore(s => s.turns[session.id]) ?? [];
   const streaming = useGalactaStore(s => s.streamingSessionId === session.id);
   const sendMessage = useGalactaStore(s => s.sendMessage);
   const abortStream = useGalactaStore(s => s.abortStream);
+  const updateSessionMode = useGalactaStore(s => s.updateSessionMode);
   const planModeActive = useGalactaStore(s => s.planModeActive);
   const rateLimits = useGalactaStore(s => s.rateLimits);
   const sessionUsage = useGalactaStore(s => s.sessionUsage[session.id]) ?? null;
@@ -54,6 +56,7 @@ export function ChatView({ session }: ChatViewProps) {
         onCloseSkills={() => setSkillsOpen(false)}
         rateLimits={rateLimits}
         sessionUsage={sessionUsage}
+        onModeChange={(mode) => updateSessionMode(session.id, mode)}
       />
 
       {/* Messages area */}
@@ -90,18 +93,29 @@ export function ChatView({ session }: ChatViewProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <SessionInput
-        onSend={handleSend}
-        onAbort={() => abortStream(session.id)}
-        streaming={streaming}
-        disabled={galactaStatus !== 'online'}
-      />
+      {/* Input — hidden in read-only preview mode */}
+      {!readOnly && (
+        <SessionInput
+          onSend={handleSend}
+          onAbort={() => abortStream(session.id)}
+          streaming={streaming}
+          disabled={galactaStatus !== 'online'}
+          workingDir={session.working_dir}
+        />
+      )}
     </div>
   );
 }
 
 // ── Top Bar ───────────────────────────────────────────────────────────
+
+const PERMISSION_MODES: { value: PermissionMode; label: string }[] = [
+  { value: 'default',           label: 'default' },
+  { value: 'acceptEdits',       label: 'accept edits' },
+  { value: 'bypassPermissions', label: 'bypass' },
+  { value: 'plan',              label: 'plan only' },
+  { value: 'dontAsk',          label: 'no prompts' },
+];
 
 function TopBar({
   session,
@@ -110,6 +124,7 @@ function TopBar({
   onCloseSkills,
   rateLimits,
   sessionUsage,
+  onModeChange,
 }: {
   session: GalactaSession;
   skillsOpen: boolean;
@@ -117,6 +132,7 @@ function TopBar({
   onCloseSkills: () => void;
   rateLimits: { type: string; utilization: number }[];
   sessionUsage: SessionUsage | null;
+  onModeChange: (mode: PermissionMode) => void;
 }) {
   const displayDir = (session.working_dir || '').replace(/^\/Users\/[^/]+/, '~');
 
@@ -151,10 +167,26 @@ function TopBar({
         {displayDir}
       </span>
 
-      {/* Permission mode */}
-      <span style={{ color: 'var(--text-tertiary)' }}>
-        {session.permission_mode || 'default'}
-      </span>
+      {/* Permission mode selector */}
+      <select
+        value={session.permission_mode || 'default'}
+        onChange={(e) => onModeChange(e.target.value as PermissionMode)}
+        style={{
+          background: 'var(--bg-hover)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-sm)',
+          color: 'var(--text-secondary)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10,
+          padding: '1px 4px',
+          cursor: 'pointer',
+          outline: 'none',
+        }}
+      >
+        {PERMISSION_MODES.map(m => (
+          <option key={m.value} value={m.value}>{m.label}</option>
+        ))}
+      </select>
 
       {/* Cumulative session cost */}
       {sessionUsage && sessionUsage.total_cost_usd > 0 && (
@@ -202,7 +234,6 @@ function TopBar({
           onClose={onCloseSkills}
           workingDir={session.working_dir}
           onSelectSkill={(skill) => {
-            // Insert skill invocation into input — handled via a ref or event
             const input = document.querySelector('textarea') as HTMLTextAreaElement;
             if (input) {
               input.value = `/${skill.name} `;

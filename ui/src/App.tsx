@@ -25,6 +25,17 @@ export function App() {
     }
   };
 
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'b' && e.metaKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        setPanelOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   if (!activeWorkspace) {
     return <WorkspaceSelectorView />;
   }
