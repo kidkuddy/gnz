@@ -17,6 +17,7 @@ import (
 )
 
 const DefaultPort = 9090
+const logFilePath = "/tmp/galacta.log"
 
 type Status struct {
 	Running bool   `json:"running"`
@@ -73,7 +74,12 @@ func (s *Service) Launch() error {
 		slog.Error("galacta binary not found", "error", err)
 		return fmt.Errorf("galacta binary not found: %w", err)
 	}
-	slog.Info("galacta launching", "binary", bin)
+	slog.Info("galacta launching", "binary", bin, "log", logFilePath)
+
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("opening galacta log file: %w", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, bin, "serve")
@@ -82,12 +88,14 @@ func (s *Service) Launch() error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
+		logFile.Close()
 		return err
 	}
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = logFile
 
 	if err := cmd.Start(); err != nil {
 		cancel()
+		logFile.Close()
 		return fmt.Errorf("starting galacta: %w", err)
 	}
 
@@ -95,13 +103,15 @@ func (s *Service) Launch() error {
 	s.cancel = cancel
 	s.running = true
 
-	// Wait for "listening" line on stdout, then hand off to background goroutine.
+	// Wait for "listening" line on stdout, then tee remaining output to the log file.
 	ready := make(chan struct{})
 	go func() {
+		defer logFile.Close()
 		scanner := bufio.NewScanner(stdout)
 		readyOnce := sync.Once{}
 		for scanner.Scan() {
 			line := scanner.Text()
+			fmt.Fprintln(logFile, line)
 			if strings.Contains(line, "listening") || strings.Contains(line, "READY") {
 				readyOnce.Do(func() { close(ready) })
 			}
@@ -163,6 +173,31 @@ func httpGet(url string, timeout time.Duration) (*http.Response, error) {
 		return nil, err
 	}
 	return client.Do(req)
+}
+
+// readLogTail returns the last N lines from the given file path.
+// Returns an empty slice (no error) if the file doesn't exist yet.
+func readLogTail(path string, n int) ([]string, error) {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// Read all lines — the file is bounded by process lifetime, so this is fine.
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 256*1024), 256*1024)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return lines, scanner.Err()
 }
 
 // ProxySSE forwards an SSE stream from Galacta to the ResponseWriter.

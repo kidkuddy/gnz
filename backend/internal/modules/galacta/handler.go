@@ -319,6 +319,27 @@ func (h *Handler) ImportSession(w http.ResponseWriter, r *http.Request) {
 	server.Success(w, sess)
 }
 
+// GET /api/v1/galacta/logs?lines=N (default 200)
+// Returns the tail of the galacta log file.
+func (h *Handler) Logs(w http.ResponseWriter, r *http.Request) {
+	lines := 200
+	if q := r.URL.Query().Get("lines"); q != "" {
+		if n, err := fmt.Sscanf(q, "%d", &lines); err != nil || n != 1 || lines < 1 {
+			lines = 200
+		}
+		if lines > 5000 {
+			lines = 5000
+		}
+	}
+
+	data, err := readLogTail(logFilePath, lines)
+	if err != nil {
+		server.JSON(w, http.StatusOK, map[string]any{"lines": []string{}, "error": err.Error()})
+		return
+	}
+	server.JSON(w, http.StatusOK, map[string]any{"lines": data})
+}
+
 // galactaPost sends a POST request to Galacta at the given path.
 func galactaPost(port int, path string, body []byte) (*http.Response, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, path)

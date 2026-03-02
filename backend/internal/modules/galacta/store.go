@@ -73,11 +73,12 @@ func (s *Store) List(workspaceID string) ([]*Session, error) {
 	return sessions, nil
 }
 
-// ListIDs returns all non-archived session IDs for a workspace (used for diff against Galacta).
+// ListIDs returns all session IDs for a workspace (used for diff against Galacta).
+// Includes archived sessions so that previously deleted sessions don't reappear on discover.
 func (s *Store) ListIDs(workspaceID string) ([]string, error) {
 	rows, err := s.db.Query(`
 		SELECT id FROM galacta_sessions
-		WHERE workspace_id = ? AND archived = 0
+		WHERE workspace_id = ?
 	`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("listing galacta session ids: %w", err)

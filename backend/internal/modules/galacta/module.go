@@ -13,6 +13,7 @@ func Register(r chi.Router, svc *Service, db *sql.DB) {
 	// Daemon lifecycle (no workspace scope)
 	r.Get("/galacta/status", h.Status)
 	r.Post("/galacta/launch", h.Launch)
+	r.Get("/galacta/logs", h.Logs)
 
 	// Session management (workspace-scoped)
 	r.Get("/workspaces/{ws}/galacta/sessions", h.ListSessions)
