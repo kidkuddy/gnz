@@ -75,6 +75,28 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
   const termRef = React.useRef<Terminal | null>(null);
   const fitRef = React.useRef<FitAddon | null>(null);
   const esRef = React.useRef<EventSource | null>(null);
+  // Per-instance resize debounce — avoids multiple terminals stomping each other
+  const resizeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleFit = React.useCallback(() => {
+    if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+    resizeTimeoutRef.current = setTimeout(() => {
+      // Double-rAF: first frame commits the layout, second frame gives correct dimensions
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const fit = fitRef.current;
+          const term = termRef.current;
+          const el = containerRef.current;
+          if (!fit || !term || !el) return;
+          // Skip if the container has no dimensions (still hidden)
+          if (el.offsetWidth === 0 || el.offsetHeight === 0) return;
+          fit.fit();
+          term.refresh(0, term.rows - 1);
+          terminalApi.resize(workspaceId, sessionId, term.cols, term.rows).catch(() => {});
+        });
+      });
+    }, 50);
+  }, [workspaceId, sessionId]);
 
   React.useEffect(() => {
     if (!containerRef.current) return;
@@ -117,11 +139,7 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
     termRef.current = term;
     fitRef.current = fitAddon;
 
-    // Fit after a frame to ensure container has dimensions
-    requestAnimationFrame(() => {
-      fitAddon.fit();
-      sendResize(workspaceId, sessionId, term.cols, term.rows);
-    });
+    scheduleFit();
 
     // Serialized input queue to prevent out-of-order keystrokes
     const inputQueue = new InputQueue(workspaceId, sessionId);
@@ -161,19 +179,13 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
       });
     });
 
-    // Resize observer — also fires when tab becomes visible (display:none → block)
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        if (fitRef.current && termRef.current) {
-          fitRef.current.fit();
-          termRef.current.refresh(0, termRef.current.rows - 1);
-          sendResize(workspaceId, sessionId, termRef.current.cols, termRef.current.rows);
-        }
-      });
-    });
+    // ResizeObserver covers container resizes and display:none → flex transitions.
+    // Zero-dimension callbacks are filtered out inside scheduleFit.
+    const resizeObserver = new ResizeObserver(() => scheduleFit());
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
       inputDisposable.dispose();
       resizeObserver.disconnect();
       es?.close();
@@ -182,7 +194,7 @@ function TerminalInstance({ sessionId, workspaceId }: { sessionId: string; works
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [sessionId, workspaceId]);
+  }, [sessionId, workspaceId, scheduleFit]);
 
   return <div ref={containerRef} style={termContainerStyle} />;
 }
@@ -204,14 +216,6 @@ function base64ToUint8(base64: string): Uint8Array {
   return bytes;
 }
 
-let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function sendResize(workspaceId: string, sessionId: string, cols: number, rows: number) {
-  if (resizeTimeout) clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(() => {
-    terminalApi.resize(workspaceId, sessionId, cols, rows).catch(() => {});
-  }, 100);
-}
 
 const emptyStyle: React.CSSProperties = {
   display: 'flex',
