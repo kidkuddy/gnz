@@ -46,6 +46,7 @@ export const databaseApi = {
 export const galactaApi = {
   status: () => apiGet<{ running: boolean; port: number; version?: string }>('galacta/status'),
   launch: () => apiPost<{ ok: boolean; port?: number }>('galacta/launch', {}),
+  logs: (lines = 500) => apiGet<{ lines: string[] }>(`galacta/logs?lines=${lines}`),
 };
 
 // Scratchpad API

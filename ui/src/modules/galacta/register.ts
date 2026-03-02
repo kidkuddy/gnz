@@ -3,6 +3,8 @@ import { Sparkles } from 'lucide-react';
 import { tabRegistry } from '../../stores/tab-registry';
 import { GalactaPanel } from './components/GalactaPanel';
 import { GalactaSessionView } from './views/GalactaSessionView';
+import { GalactaPreviewView } from './views/GalactaPreviewView';
+import { GalactaLogsView } from './views/GalactaLogsView';
 import { useGalactaStore } from './stores/galacta-store';
 
 export function registerGalactaModule() {
@@ -21,6 +23,14 @@ export function registerGalactaModule() {
           if (!sessionId || !workspaceId) return;
           useGalactaStore.getState().renameSession(workspaceId, sessionId, title);
         },
+      },
+      {
+        type: 'galacta-preview',
+        renderContent: () => React.createElement(GalactaPreviewView),
+      },
+      {
+        type: 'galacta-logs',
+        renderContent: () => React.createElement(GalactaLogsView),
       },
     ],
   });

@@ -29,6 +29,13 @@ export interface ExternalSession {
   created_at?: string;
 }
 
+// A lightweight session record used for previewing untracked sessions.
+export interface PreviewSession {
+  id: string;
+  working_dir: string;
+  model: string;
+}
+
 export interface Skill {
   name: string;
   description: string;
@@ -98,6 +105,9 @@ interface GalactaState {
   // Skills
   skills: Skill[];
 
+  // Preview sessions — untracked sessions fetched for read-only viewing
+  previewSessions: Record<string, PreviewSession>;
+
   // Usage (rate limits + session cumulative)
   rateLimits: RateLimitWindow[];
   sessionUsage: Record<string, SessionUsage>;
@@ -112,6 +122,7 @@ interface GalactaState {
   setActiveSession: (id: string | null) => void;
   discoverSessions: (workspaceId: string, workingDir: string) => Promise<ExternalSession[]>;
   importSession: (workspaceId: string, id: string, name?: string) => Promise<GalactaSession | null>;
+  previewExternalSession: (ext: ExternalSession) => Promise<void>;
   sendMessage: (sessionId: string, text: string) => Promise<void>;
   abortStream: (sessionId: string) => void;
   respondPermission: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
@@ -121,6 +132,7 @@ interface GalactaState {
   loadRateLimits: () => Promise<void>;
   compactSession: (sessionId: string, keepMessages?: number) => Promise<void>;
   renameSession: (workspaceId: string, sessionId: string, name: string) => Promise<void>;
+  updateSessionMode: (sessionId: string, permissionMode: PermissionMode) => Promise<void>;
 
   // Helpers
   getSessionTurns: (sessionId: string) => Turn[];
@@ -163,6 +175,7 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
   abortControllers: {},
   planModeActive: false,
   skills: [],
+  previewSessions: {},
   rateLimits: [],
   sessionUsage: {},
 
@@ -294,6 +307,26 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
       console.warn('[galacta:importSession] Failed:', err);
       return null;
     }
+  },
+
+  previewExternalSession: async (ext: ExternalSession) => {
+    const preview: PreviewSession = {
+      id: ext.id,
+      working_dir: ext.working_dir,
+      model: ext.model,
+    };
+    set(s => ({ previewSessions: { ...s.previewSessions, [ext.id]: preview } }));
+    // Load history so the tab has content to show
+    await get().loadHistory(ext.id);
+    // Open a tab via the tab store — use a side-effect import to avoid circular deps
+    const { useTabStore } = await import('../../../stores/tab-store');
+    useTabStore.getState().addTab({
+      id: `galacta-preview-${ext.id}`,
+      title: ext.working_dir.split('/').pop() || ext.id.slice(0, 8),
+      type: 'galacta-preview',
+      moduleId: 'galacta',
+      data: { sessionId: ext.id },
+    });
   },
 
   // ── Message streaming (POST SSE to Galacta) ──────────────────────
@@ -587,26 +620,36 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
   },
 
   renameSession: async (workspaceId: string, sessionId: string, name: string) => {
+    // Optimistic update — panel reflects the new name immediately
+    set(s => ({
+      sessions: s.sessions.map(x => x.id === sessionId ? { ...x, name } : x),
+    }));
     try {
       const port = await getBackendPort();
-      const resp = await fetch(`http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions/${sessionId}`, {
+      await fetch(`http://127.0.0.1:${port}/api/v1/workspaces/${workspaceId}/galacta/sessions/${sessionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      const json = await resp.json();
-      const updated = json.data ?? json;
-      if (updated?.id) {
-        const session = sanitizeSession(updated);
-        set(s => ({
-          sessions: s.sessions.map(x => x.id === sessionId ? session : x),
-        }));
-        // Sync tab title
-        const tabStore = useTabStore.getState();
-        tabStore.renameTab(`galacta-${sessionId}`, name);
-      }
     } catch (err) {
       console.warn('[galacta:renameSession] Failed:', err);
+    }
+  },
+
+  updateSessionMode: async (sessionId: string, permissionMode: PermissionMode) => {
+    // Optimistic update
+    set(s => ({
+      sessions: s.sessions.map(x => x.id === sessionId ? { ...x, permission_mode: permissionMode } : x),
+    }));
+    const { galactaPort: port } = get();
+    try {
+      await fetch(galactaUrl(port, `/sessions/${sessionId}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permission_mode: permissionMode }),
+      });
+    } catch (err) {
+      console.warn('[galacta:updateSessionMode] Failed:', err);
     }
   },
 
