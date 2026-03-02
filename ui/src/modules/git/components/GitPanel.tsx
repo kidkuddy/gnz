@@ -48,6 +48,7 @@ export function GitPanel() {
   const [repoDropdownOpen, setRepoDropdownOpen] = React.useState(false);
   const [branchDropdownOpen, setBranchDropdownOpen] = React.useState(false);
   const [newBranchName, setNewBranchName] = React.useState('');
+  const [branchSearch, setBranchSearch] = React.useState('');
 
   const wsId = activeWorkspace?.id;
 
@@ -143,6 +144,7 @@ export function GitPanel() {
     try {
       await checkoutBranch(wsId, branch);
       setBranchDropdownOpen(false);
+      setBranchSearch('');
       toast.success(`Switched to ${branch}`);
     } catch (err) {
       toast.error(`Checkout failed: ${err}`);
@@ -155,6 +157,7 @@ export function GitPanel() {
       await createBranch(wsId, newBranchName.trim());
       setNewBranchName('');
       setBranchDropdownOpen(false);
+      setBranchSearch('');
       toast.success(`Created and switched to ${newBranchName.trim()}`);
     } catch (err) {
       toast.error(`Create branch failed: ${err}`);
@@ -298,7 +301,7 @@ export function GitPanel() {
       {selectedRepo && (
         <div style={{ padding: 'var(--space-1) var(--space-3)', borderBottom: '1px solid var(--border-subtle)' }}>
           <div
-            onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
+            onClick={() => { setBranchDropdownOpen(!branchDropdownOpen); setBranchSearch(''); }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -323,22 +326,43 @@ export function GitPanel() {
                 overflow: 'hidden',
               }}
             >
-              {branches.map((b) => (
-                <div
-                  key={b.name}
-                  onClick={() => !b.is_current && handleCheckoutBranch(b.name)}
+              <div style={{ padding: '4px var(--space-3)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <input
+                  autoFocus
+                  value={branchSearch}
+                  onChange={(e) => setBranchSearch(e.target.value)}
+                  placeholder="Search branches..."
                   style={{
-                    padding: '4px var(--space-3)',
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
                     fontSize: '11px',
-                    color: b.is_current ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    background: b.is_current ? 'var(--accent-muted)' : 'transparent',
-                    cursor: b.is_current ? 'default' : 'pointer',
                     fontFamily: 'var(--font-mono)',
+                    outline: 'none',
                   }}
-                >
-                  {b.is_current ? '* ' : '  '}{b.name}
-                </div>
-              ))}
+                />
+              </div>
+              <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                {branches
+                  .filter((b) => b.name.toLowerCase().includes(branchSearch.toLowerCase()))
+                  .map((b) => (
+                    <div
+                      key={b.name}
+                      onClick={() => !b.is_current && handleCheckoutBranch(b.name)}
+                      style={{
+                        padding: '4px var(--space-3)',
+                        fontSize: '11px',
+                        color: b.is_current ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        background: b.is_current ? 'var(--accent-muted)' : 'transparent',
+                        cursor: b.is_current ? 'default' : 'pointer',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {b.is_current ? '* ' : '  '}{b.name}
+                    </div>
+                  ))}
+              </div>
               <div style={{ borderTop: '1px solid var(--border-subtle)', padding: 'var(--space-2) var(--space-3)', display: 'flex', gap: 'var(--space-2)' }}>
                 <input
                   value={newBranchName}

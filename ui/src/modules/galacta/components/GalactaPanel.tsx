@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useGalactaStore, type GalactaSession, type ExternalSession } from '../stores/galacta-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useTabStore } from '../../../stores/tab-store';
@@ -52,7 +52,7 @@ export function GalactaPanel() {
 
   const handleNewSession = async () => {
     if (!activeWorkspace) return;
-    const session = await createSession(activeWorkspace.id, workingDir());
+    const session = await createSession(activeWorkspace.id, workingDir(), undefined, 'bypassPermissions');
     if (session) {
       openSessionTab(session);
     }
@@ -71,6 +71,12 @@ export function GalactaPanel() {
     setExternalSessions(found);
     setDiscovering(false);
   };
+
+  const previewExternalSession = useGalactaStore(s => s.previewExternalSession);
+
+  const handlePreview = useCallback((ext: ExternalSession) => {
+    previewExternalSession(ext);
+  }, [previewExternalSession]);
 
   const handleImport = async (ext: ExternalSession) => {
     if (!activeWorkspace) return;
@@ -128,6 +134,29 @@ export function GalactaPanel() {
         {galactaStatus === 'online' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
+              onClick={() => {
+                addTab({
+                  id: 'galacta-logs',
+                  title: 'Galacta Logs',
+                  type: 'galacta-logs',
+                  moduleId: 'galacta',
+                });
+              }}
+              title="View galacta daemon logs"
+              style={{
+                background: 'none',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '2px 6px',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+              }}
+            >
+              logs
+            </button>
+            <button
               onClick={handleToggleDiscover}
               title="Discover existing sessions"
               style={{
@@ -145,18 +174,20 @@ export function GalactaPanel() {
             </button>
             <button
               onClick={handleNewSession}
+              title="New session"
               style={{
                 background: 'none',
                 border: '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
-                padding: '2px 8px',
+                padding: '2px 6px',
                 color: 'var(--text-secondary)',
                 cursor: 'pointer',
                 fontFamily: 'var(--font-mono)',
-                fontSize: 10,
+                fontSize: 12,
+                lineHeight: 1,
               }}
             >
-              + new
+              +
             </button>
           </div>
         )}
@@ -265,6 +296,7 @@ export function GalactaPanel() {
                   key={ext.id}
                   session={ext}
                   importing={importing === ext.id}
+                  onPreview={() => handlePreview(ext)}
                   onImport={() => handleImport(ext)}
                 />
               ))}
@@ -326,10 +358,12 @@ function StatusDot({ status }: { status: string }) {
 function ExternalSessionItem({
   session,
   importing,
+  onPreview,
   onImport,
 }: {
   session: ExternalSession;
   importing: boolean;
+  onPreview: () => void;
   onImport: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -337,6 +371,7 @@ function ExternalSessionItem({
 
   return (
     <div
+      onClick={onPreview}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -344,6 +379,7 @@ function ExternalSessionItem({
         display: 'flex',
         alignItems: 'center',
         gap: 6,
+        cursor: 'pointer',
         background: hovered ? 'var(--bg-hover)' : 'transparent',
       }}
     >
