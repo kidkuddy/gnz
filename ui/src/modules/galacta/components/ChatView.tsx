@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useGalactaStore, type GalactaSession, type PermissionMode, type SessionUsage, type Turn, type TurnEvent } from '../stores/galacta-store';
 import { ToolBlock } from './ToolBlock';
 import { PermissionPrompt } from './PermissionPrompt';
@@ -7,7 +9,7 @@ import { ThinkingBlock } from './ThinkingBlock';
 import { SubagentChip } from './SubagentChip';
 import { PlanModeBanner } from './PlanModeBanner';
 import { SkillsPopover } from './SkillsPopover';
-import { SessionInput } from './SessionInput';
+import { SessionInput, type BuiltinCommand } from './SessionInput';
 
 interface ChatViewProps {
   session: GalactaSession;
@@ -20,6 +22,10 @@ export function ChatView({ session, readOnly = false }: ChatViewProps) {
   const sendMessage = useGalactaStore(s => s.sendMessage);
   const abortStream = useGalactaStore(s => s.abortStream);
   const updateSessionMode = useGalactaStore(s => s.updateSessionMode);
+  const updateSessionModel = useGalactaStore(s => s.updateSessionModel);
+  const activeWorkspaceId = useGalactaStore(s => s.activeWorkspaceId);
+  const compactSession = useGalactaStore(s => s.compactSession);
+  const clearSession = useGalactaStore(s => s.clearSession);
   const planModeActive = useGalactaStore(s => s.planModeActive);
   const rateLimits = useGalactaStore(s => s.rateLimits);
   const sessionUsage = useGalactaStore(s => s.sessionUsage[session.id]) ?? null;
@@ -43,6 +49,11 @@ export function ChatView({ session, readOnly = false }: ChatViewProps) {
     sendMessage(session.id, text);
   };
 
+  const handleCommand = (cmd: BuiltinCommand) => {
+    if (cmd === 'clear') clearSession(session.id);
+    if (cmd === 'compact') compactSession(session.id);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Plan mode banner */}
@@ -57,6 +68,9 @@ export function ChatView({ session, readOnly = false }: ChatViewProps) {
         rateLimits={rateLimits}
         sessionUsage={sessionUsage}
         onModeChange={(mode) => updateSessionMode(session.id, mode)}
+        onModelChange={(model) => {
+          if (activeWorkspaceId) updateSessionModel(activeWorkspaceId, session.id, model);
+        }}
       />
 
       {/* Messages area */}
@@ -97,6 +111,7 @@ export function ChatView({ session, readOnly = false }: ChatViewProps) {
       {!readOnly && (
         <SessionInput
           onSend={handleSend}
+          onCommand={handleCommand}
           onAbort={() => abortStream(session.id)}
           streaming={streaming}
           disabled={galactaStatus !== 'online'}
@@ -117,6 +132,12 @@ const PERMISSION_MODES: { value: PermissionMode; label: string }[] = [
   { value: 'dontAsk',          label: 'no prompts' },
 ];
 
+export const CLAUDE_MODELS = [
+  'claude-opus-4-6',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-6',
+] as const;
+
 function TopBar({
   session,
   skillsOpen,
@@ -125,16 +146,29 @@ function TopBar({
   rateLimits,
   sessionUsage,
   onModeChange,
+  onModelChange,
 }: {
   session: GalactaSession;
   skillsOpen: boolean;
   onToggleSkills: () => void;
   onCloseSkills: () => void;
-  rateLimits: { type: string; utilization: number }[];
+  rateLimits: { type: string; utilization: number; resets_at?: number }[];
   sessionUsage: SessionUsage | null;
   onModeChange: (mode: PermissionMode) => void;
+  onModelChange: (model: string) => void;
 }) {
   const displayDir = (session.working_dir || '').replace(/^\/Users\/[^/]+/, '~');
+  const selectStyle = {
+    background: 'var(--bg-hover)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 10,
+    padding: '1px 4px',
+    cursor: 'pointer',
+    outline: 'none',
+  };
 
   return (
     <div
@@ -149,18 +183,21 @@ function TopBar({
         flexWrap: 'wrap',
       }}
     >
-      {/* Model */}
-      <span
-        style={{
-          padding: '1px 6px',
-          borderRadius: 'var(--radius-sm)',
-          background: 'var(--bg-hover)',
-          color: 'var(--text-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
+      {/* Model selector */}
+      <select
+        value={session.model || ''}
+        onChange={(e) => onModelChange(e.target.value)}
+        style={selectStyle}
+        title="Switch model (aborts active stream)"
       >
-        {session.model || 'unknown'}
-      </span>
+        {/* If current model is not in our known list, show it as an option */}
+        {session.model && !CLAUDE_MODELS.includes(session.model as typeof CLAUDE_MODELS[number]) && (
+          <option value={session.model}>{session.model}</option>
+        )}
+        {CLAUDE_MODELS.map(m => (
+          <option key={m} value={m}>{m.replace('claude-', '')}</option>
+        ))}
+      </select>
 
       {/* Working dir */}
       <span style={{ color: 'var(--text-tertiary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -171,17 +208,7 @@ function TopBar({
       <select
         value={session.permission_mode || 'default'}
         onChange={(e) => onModeChange(e.target.value as PermissionMode)}
-        style={{
-          background: 'var(--bg-hover)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-sm)',
-          color: 'var(--text-secondary)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          padding: '1px 4px',
-          cursor: 'pointer',
-          outline: 'none',
-        }}
+        style={selectStyle}
       >
         {PERMISSION_MODES.map(m => (
           <option key={m.value} value={m.value}>{m.label}</option>
@@ -207,7 +234,7 @@ function TopBar({
       {rateLimits.length > 0 && (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {rateLimits.map(rl => (
-            <RateLimitBar key={rl.type} type={rl.type} utilization={rl.utilization} />
+            <RateLimitBar key={rl.type} type={rl.type} utilization={rl.utilization} resetsAt={rl.resets_at} />
           ))}
         </div>
       )}
@@ -283,13 +310,17 @@ function ContextBar({ usage }: { usage: SessionUsage }) {
 
 // ── Rate limit bar ────────────────────────────────────────────────────
 
-function RateLimitBar({ type, utilization }: { type: string; utilization: number }) {
+function RateLimitBar({ type, utilization, resetsAt }: { type: string; utilization: number; resetsAt?: number }) {
   const pct = Math.round(utilization * 100);
   const color = utilization > 0.8 ? '#c44' : utilization > 0.5 ? '#d4a017' : 'var(--text-tertiary)';
   const label = type === 'five_hour' ? '5h' : type === 'seven_day' ? '7d' : type;
 
+  const tooltip = resetsAt
+    ? `Resets ${new Date(resetsAt * 1000).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`
+    : undefined;
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }} title={tooltip}>
       <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>{label}</span>
       <div
         style={{
@@ -435,81 +466,14 @@ function EventBlock({ event, sessionId }: { event: TurnEvent; sessionId: string 
   }
 }
 
-// ── Text block with simple markdown ───────────────────────────────────
+// ── Text block with markdown ──────────────────────────────────────────
 
 function TextBlock({ text }: { text: string }) {
   return (
-    <div
-      style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 12,
-        color: 'var(--text-primary)',
-        lineHeight: 1.6,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}
-      dangerouslySetInnerHTML={{ __html: simpleMarkdown(text) }}
-    />
+    <div className="md-body">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+    </div>
   );
-}
-
-function simpleMarkdown(text: string): string {
-  // Collapse multiple blank lines into one, trim leading/trailing
-  text = text.trim().replace(/\n{2,}/g, '\n');
-
-  // Process code blocks first (before escaping)
-  const codeBlocks: string[] = [];
-  let processed = text.replace(/```[\w]*\n([\s\S]*?)```/g, (_m, code) => {
-    const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const idx = codeBlocks.length;
-    codeBlocks.push(
-      `<pre style="background:var(--bg-hover);padding:8px;border-radius:var(--radius-sm);font-size:11px;overflow-x:auto;margin:4px 0">${escaped}</pre>`
-    );
-    return `\x00CB${idx}\x00`;
-  });
-
-  // Escape HTML
-  processed = processed
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Headers (must be at line start)
-  processed = processed.replace(/^#{4}\s+(.+)$/gm,
-    '<div style="font-size:12px;font-weight:600;color:var(--text-primary);margin:8px 0 4px">$1</div>');
-  processed = processed.replace(/^#{3}\s+(.+)$/gm,
-    '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin:10px 0 4px">$1</div>');
-  processed = processed.replace(/^#{2}\s+(.+)$/gm,
-    '<div style="font-size:14px;font-weight:600;color:var(--text-primary);margin:12px 0 4px">$1</div>');
-  processed = processed.replace(/^#{1}\s+(.+)$/gm,
-    '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin:14px 0 6px">$1</div>');
-
-  // Bold
-  processed = processed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-  // Italic
-  processed = processed.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-
-  // Inline code
-  processed = processed.replace(/`([^`]+)`/g,
-    '<code style="background:var(--bg-active);padding:1px 4px;border-radius:2px;font-size:11px">$1</code>');
-
-  // Horizontal rule
-  processed = processed.replace(/^---$/gm,
-    '<hr style="border:none;border-top:1px solid var(--border-subtle);margin:8px 0" />');
-
-  // Unordered list items
-  processed = processed.replace(/^[-*]\s+(.+)$/gm,
-    '<div style="padding-left:12px">• $1</div>');
-
-  // Ordered list items
-  processed = processed.replace(/^(\d+)\.\s+(.+)$/gm,
-    '<div style="padding-left:12px">$1. $2</div>');
-
-  // Restore code blocks
-  processed = processed.replace(/\x00CB(\d+)\x00/g, (_m, idx) => codeBlocks[Number(idx)]);
-
-  return processed;
 }
 
 // ── Usage badge ───────────────────────────────────────────────────────

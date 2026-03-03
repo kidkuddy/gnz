@@ -138,27 +138,52 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 }
 
 // PATCH /api/v1/workspaces/{ws}/galacta/sessions/{id}
-func (h *Handler) RenameSession(w http.ResponseWriter, r *http.Request) {
+// Accepts: { name } to rename, { model } to switch model (also forwarded to Galacta daemon).
+func (h *Handler) UpdateSession(w http.ResponseWriter, r *http.Request) {
 	wsID := chi.URLParam(r, "ws")
 	id := chi.URLParam(r, "id")
 
 	var body struct {
-		Name string `json:"name"`
+		Name  string `json:"name"`
+		Model string `json:"model"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		server.BadRequest(w, "invalid request body")
 		return
 	}
-	if body.Name == "" {
-		server.BadRequest(w, "name is required")
+	if body.Name == "" && body.Model == "" {
+		server.BadRequest(w, "name or model is required")
 		return
 	}
 
-	sess, err := h.store.Rename(wsID, id, body.Name)
-	if err != nil {
-		server.NotFound(w, err.Error())
-		return
+	var sess *Session
+	var err error
+
+	if body.Name != "" {
+		sess, err = h.store.Rename(wsID, id, body.Name)
+		if err != nil {
+			server.NotFound(w, err.Error())
+			return
+		}
 	}
+
+	if body.Model != "" {
+		// Forward model change to Galacta daemon
+		modelPayload, _ := json.Marshal(map[string]string{"model": body.Model})
+		galactaResp, galErr := galactaPatch(h.svc.port, fmt.Sprintf("/sessions/%s", id), modelPayload)
+		if galErr != nil {
+			slog.Warn("galacta model update failed (will still persist locally)", "id", id, "error", galErr)
+		} else {
+			galactaResp.Body.Close()
+		}
+
+		sess, err = h.store.UpdateModel(wsID, id, body.Model)
+		if err != nil {
+			server.NotFound(w, err.Error())
+			return
+		}
+	}
+
 	server.Success(w, sess)
 }
 
@@ -351,6 +376,24 @@ func galactaPost(port int, path string, body []byte) (*http.Response, error) {
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, url, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return client.Do(req)
+}
+
+// galactaPatch sends a PATCH request to Galacta at the given path.
+func galactaPatch(port int, path string, body []byte) (*http.Response, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, path)
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	} else {
+		bodyReader = bytes.NewReader([]byte("{}"))
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest(http.MethodPatch, url, bodyReader)
 	if err != nil {
 		return nil, err
 	}

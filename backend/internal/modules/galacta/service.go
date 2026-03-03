@@ -2,6 +2,7 @@ package galacta
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -198,6 +199,97 @@ func readLogTail(path string, n int) ([]string, error) {
 		lines = lines[len(lines)-n:]
 	}
 	return lines, scanner.Err()
+}
+
+type CreateSessionRequest struct {
+	WorkspaceID string
+	Name        string
+	WorkingDir  string
+	Model       string
+	InitialMsg  string
+}
+
+type CreateSessionResult struct {
+	Session    *Session
+	NeedsInput bool
+}
+
+// CreateSession creates a session in Galacta, persists it in gnz DB,
+// and optionally sends an initial message.
+func (s *Service) CreateSession(store *Store, req CreateSessionRequest) (*CreateSessionResult, error) {
+	// 1. POST to Galacta /sessions
+	payload, _ := json.Marshal(map[string]string{
+		"working_dir": req.WorkingDir,
+		"model":       req.Model,
+	})
+	resp, err := galactaPost(s.port, "/sessions", payload)
+	if err != nil {
+		return nil, fmt.Errorf("creating galacta session: %w", err)
+	}
+	defer resp.Body.Close()
+
+	rawBody, _ := io.ReadAll(resp.Body)
+	var wrapper struct {
+		Data map[string]any `json:"data"`
+	}
+	var flat map[string]any
+	if err := json.Unmarshal(rawBody, &wrapper); err == nil && wrapper.Data != nil {
+		flat = wrapper.Data
+	} else if err := json.Unmarshal(rawBody, &flat); err != nil {
+		return nil, fmt.Errorf("parsing galacta session response: %w", err)
+	}
+
+	sessionID, _ := flat["id"].(string)
+	workingDir, _ := flat["working_dir"].(string)
+	model, _ := flat["model"].(string)
+	if sessionID == "" {
+		return nil, fmt.Errorf("galacta returned no session id")
+	}
+
+	name := req.Name
+	if name == "" {
+		name = "New Session"
+	}
+
+	// 2. Persist in gnz DB
+	sess := &Session{
+		ID:          sessionID,
+		WorkspaceID: req.WorkspaceID,
+		Name:        name,
+		WorkingDir:  workingDir,
+		Model:       model,
+	}
+	if err := store.Upsert(sess); err != nil {
+		slog.Error("failed to persist galacta session from kanban", "error", err)
+	}
+
+	// 3. Optionally send initial message (fire-and-forget, runs in background goroutine)
+	needsInput := true
+	if req.InitialMsg != "" {
+		msgPayload, _ := json.Marshal(map[string]string{"message": req.InitialMsg})
+		port := s.port
+		go func() {
+			// No timeout — SSE response can be arbitrarily long
+			streamClient := &http.Client{}
+			url := fmt.Sprintf("http://127.0.0.1:%d/sessions/%s/message", port, sessionID)
+			req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(msgPayload))
+			if err != nil {
+				slog.Warn("galacta message request build failed", "session_id", sessionID, "error", err)
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			msgResp, msgErr := streamClient.Do(req)
+			if msgErr != nil {
+				slog.Warn("galacta initial message failed (non-fatal)", "session_id", sessionID, "error", msgErr)
+				return
+			}
+			io.Copy(io.Discard, msgResp.Body)
+			msgResp.Body.Close()
+		}()
+		needsInput = false
+	}
+
+	return &CreateSessionResult{Session: sess, NeedsInput: needsInput}, nil
 }
 
 // ProxySSE forwards an SSE stream from Galacta to the ResponseWriter.

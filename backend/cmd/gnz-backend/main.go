@@ -22,6 +22,7 @@ import (
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/files"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/galacta"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/git"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/kanban"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/scratchpad"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/terminal"
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
@@ -129,12 +130,19 @@ func main() {
 		actions.Register(r, actionsStore, actionsMgr)
 	})
 
+	// Initialize kanban module
+	kanbanStore := kanban.NewStore(db)
+	galactaStore := galacta.NewStore(db)
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		kanban.Register(r, kanbanStore, galactaSvc, galactaStore, wsSvc)
+	})
+
 	// Finalize routes
 	srv.Build()
 
 	// Register MCP server
 	if cfg.Features.MCP {
-		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr)
+		mcpSrv, err := mcpserver.New(wsSvc, poolMgr, connStore, actionsStore, actionsMgr, kanbanStore, galactaSvc, galactaStore)
 		if err != nil {
 			log.Fatalf("creating MCP server: %v", err)
 		}

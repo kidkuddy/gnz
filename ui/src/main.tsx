@@ -10,6 +10,7 @@ import { registerTerminalModule } from './modules/terminal/register';
 import { registerScratchpadModule } from './modules/scratchpad/register';
 import { registerGitModule } from './modules/git/register';
 import { registerActionsModule } from './modules/actions/register';
+import { registerKanbanModule } from './modules/kanban/register';
 import './styles/global.css';
 
 // Registration order determines activity bar order
@@ -20,6 +21,7 @@ registerTerminalModule();
 registerScratchpadModule();
 registerGitModule();
 registerActionsModule();
+registerKanbanModule();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

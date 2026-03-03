@@ -130,6 +130,23 @@ func (s *Store) Rename(workspaceID, id, name string) (*Session, error) {
 	return s.Get(workspaceID, id)
 }
 
+// UpdateModel updates the model of a session.
+func (s *Store) UpdateModel(workspaceID, id, model string) (*Session, error) {
+	now := time.Now().UTC()
+	res, err := s.db.Exec(`
+		UPDATE galacta_sessions SET model = ?, updated_at = ?
+		WHERE workspace_id = ? AND id = ? AND archived = 0
+	`, model, now, workspaceID, id)
+	if err != nil {
+		return nil, fmt.Errorf("updating galacta session model: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return nil, fmt.Errorf("session not found")
+	}
+	return s.Get(workspaceID, id)
+}
+
 // Archive marks a session as archived (soft delete).
 func (s *Store) Archive(workspaceID, id string) error {
 	now := time.Now().UTC()

@@ -275,6 +275,107 @@ export async function getBackendPort(): Promise<number> {
   return invoke<number>('get_backend_port');
 }
 
+// Kanban types
+export interface KanbanBoard {
+  id: string;
+  workspace_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KanbanColumn {
+  id: string;
+  board_id: string;
+  name: string;
+  position: number;
+  visible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KanbanLabel {
+  id: string;
+  board_id: string;
+  name: string;
+}
+
+export interface KanbanCard {
+  id: string;
+  board_id: string;
+  column_id: string;
+  title: string;
+  description: string;
+  priority: 'would' | 'could' | 'should' | 'must';
+  position: number;
+  labels: KanbanLabel[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KanbanSubtask {
+  id: string;
+  card_id: string;
+  title: string;
+  prompt: string;
+  deliverable: string;
+  session_id: string | null;
+  status: 'pending' | 'running' | 'done';
+  position: number;
+  context_deps: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const kanbanApi = {
+  // Boards
+  listBoards: (ws: string) => apiGet<KanbanBoard[]>(`workspaces/${ws}/kanban/boards`),
+  createBoard: (ws: string, name: string) => apiPost<KanbanBoard>(`workspaces/${ws}/kanban/boards`, { name }),
+  updateBoard: (ws: string, boardId: string, name: string) => apiPut<KanbanBoard>(`workspaces/${ws}/kanban/boards/${boardId}`, { name }),
+  deleteBoard: (ws: string, boardId: string) => apiDelete(`workspaces/${ws}/kanban/boards/${boardId}`),
+
+  // Columns
+  listColumns: (ws: string, boardId: string) => apiGet<KanbanColumn[]>(`workspaces/${ws}/kanban/boards/${boardId}/columns`),
+  createColumn: (ws: string, boardId: string, name: string, position: number) =>
+    apiPost<KanbanColumn>(`workspaces/${ws}/kanban/boards/${boardId}/columns`, { name, position }),
+  updateColumn: (ws: string, boardId: string, colId: string, patch: Partial<Pick<KanbanColumn, 'name' | 'position' | 'visible'>>) =>
+    apiPut<KanbanColumn>(`workspaces/${ws}/kanban/boards/${boardId}/columns/${colId}`, patch),
+  deleteColumn: (ws: string, boardId: string, colId: string) =>
+    apiDelete(`workspaces/${ws}/kanban/boards/${boardId}/columns/${colId}`),
+
+  // Cards
+  listCards: (ws: string, boardId: string) => apiGet<KanbanCard[]>(`workspaces/${ws}/kanban/boards/${boardId}/cards`),
+  createCard: (ws: string, boardId: string, data: { column_id: string; title: string; description?: string; priority?: string }) =>
+    apiPost<KanbanCard>(`workspaces/${ws}/kanban/boards/${boardId}/cards`, data),
+  updateCard: (ws: string, boardId: string, cardId: string, patch: Partial<Pick<KanbanCard, 'title' | 'description' | 'priority' | 'column_id' | 'position'>>) =>
+    apiPut<KanbanCard>(`workspaces/${ws}/kanban/boards/${boardId}/cards/${cardId}`, patch),
+  deleteCard: (ws: string, boardId: string, cardId: string) =>
+    apiDelete(`workspaces/${ws}/kanban/boards/${boardId}/cards/${cardId}`),
+
+  // Labels
+  searchLabels: (ws: string, boardId: string, q: string) =>
+    apiGet<KanbanLabel[]>(`workspaces/${ws}/kanban/boards/${boardId}/labels?q=${encodeURIComponent(q)}`),
+  createLabel: (ws: string, boardId: string, name: string) =>
+    apiPost<KanbanLabel>(`workspaces/${ws}/kanban/boards/${boardId}/labels`, { name }),
+  attachLabel: (ws: string, boardId: string, cardId: string, labelId: string) =>
+    apiPost<void>(`workspaces/${ws}/kanban/boards/${boardId}/cards/${cardId}/labels`, { label_id: labelId }),
+  detachLabel: (ws: string, boardId: string, cardId: string, labelId: string) =>
+    apiDelete(`workspaces/${ws}/kanban/boards/${boardId}/cards/${cardId}/labels/${labelId}`),
+
+  // Subtasks
+  listSubtasks: (ws: string, cardId: string) => apiGet<KanbanSubtask[]>(`workspaces/${ws}/kanban/cards/${cardId}/subtasks`),
+  createSubtask: (ws: string, cardId: string, data: { title: string; prompt?: string; context_deps?: string[] }) =>
+    apiPost<KanbanSubtask>(`workspaces/${ws}/kanban/cards/${cardId}/subtasks`, data),
+  updateSubtask: (ws: string, cardId: string, subId: string, patch: Partial<Pick<KanbanSubtask, 'title' | 'prompt' | 'position' | 'context_deps'>>) =>
+    apiPut<KanbanSubtask>(`workspaces/${ws}/kanban/cards/${cardId}/subtasks/${subId}`, patch),
+  deleteSubtask: (ws: string, cardId: string, subId: string) =>
+    apiDelete(`workspaces/${ws}/kanban/cards/${cardId}/subtasks/${subId}`),
+  launchSubtask: (ws: string, cardId: string, subId: string) =>
+    apiPost<{ id: string; workspace_id: string; name: string; working_dir: string; model: string }>(
+      `workspaces/${ws}/kanban/cards/${cardId}/subtasks/${subId}/launch`, {}
+    ),
+};
+
 // Config API
 export const configApi = {
   get: () => apiGet<AppConfig>('config'),

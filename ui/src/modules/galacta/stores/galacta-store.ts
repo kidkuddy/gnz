@@ -131,8 +131,10 @@ interface GalactaState {
   loadSkills: (workingDir: string) => Promise<void>;
   loadRateLimits: () => Promise<void>;
   compactSession: (sessionId: string, keepMessages?: number) => Promise<void>;
+  clearSession: (sessionId: string) => Promise<void>;
   renameSession: (workspaceId: string, sessionId: string, name: string) => Promise<void>;
   updateSessionMode: (sessionId: string, permissionMode: PermissionMode) => Promise<void>;
+  updateSessionModel: (workspaceId: string, sessionId: string, model: string) => Promise<void>;
 
   // Helpers
   getSessionTurns: (sessionId: string) => Turn[];
@@ -617,6 +619,16 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keep_messages: keepMessages }),
     });
+    await get().loadHistory(sessionId);
+  },
+
+  clearSession: async (sessionId) => {
+    // Wipe local turns immediately
+    set(s => ({ turns: { ...s.turns, [sessionId]: [] } }));
+    const { galactaPort: port } = get();
+    await fetch(galactaUrl(port, `/sessions/${sessionId}/clear`), {
+      method: 'POST',
+    });
   },
 
   renameSession: async (workspaceId: string, sessionId: string, name: string) => {
@@ -650,6 +662,29 @@ export const useGalactaStore = create<GalactaState>()((set, get) => ({
       });
     } catch (err) {
       console.warn('[galacta:updateSessionMode] Failed:', err);
+    }
+  },
+
+  updateSessionModel: async (workspaceId: string, sessionId: string, model: string) => {
+    // Abort any active SSE stream first — model changes take effect on the next request
+    const controller = get().abortControllers[sessionId];
+    if (controller) controller.abort();
+
+    // Optimistic update
+    set(s => ({
+      sessions: s.sessions.map(x => x.id === sessionId ? { ...x, model } : x),
+    }));
+
+    try {
+      const backendPort = await getBackendPort();
+      // gnz backend handles the galacta PATCH + persistence in one call
+      await fetch(`http://127.0.0.1:${backendPort}/api/v1/workspaces/${workspaceId}/galacta/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+      });
+    } catch (err) {
+      console.warn('[galacta:updateSessionModel] Failed:', err);
     }
   },
 

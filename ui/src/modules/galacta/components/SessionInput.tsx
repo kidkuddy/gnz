@@ -1,15 +1,23 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
-import { useGalactaStore, type Skill } from '../stores/galacta-store';
+import { useGalactaStore } from '../stores/galacta-store';
+
+export type BuiltinCommand = 'clear' | 'compact';
 
 interface SessionInputProps {
   onSend: (text: string) => void;
+  onCommand: (cmd: BuiltinCommand) => void;
   onAbort: () => void;
   streaming: boolean;
   disabled: boolean;
   workingDir: string;
 }
 
-export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir }: SessionInputProps) {
+const BUILTIN_COMMANDS: { name: BuiltinCommand; description: string }[] = [
+  { name: 'clear',   description: 'Clear session history and context' },
+  { name: 'compact', description: 'Compact context to save tokens' },
+];
+
+export function SessionInput({ onSend, onCommand, onAbort, streaming, disabled, workingDir }: SessionInputProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const skills = useGalactaStore(s => s.skills);
   const loadSkills = useGalactaStore(s => s.loadSkills);
@@ -24,19 +32,25 @@ export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir 
     if (workingDir) loadSkills(workingDir);
   }, [workingDir]);
 
-  const filtered: Skill[] = query === ''
-    ? skills
-    : skills.filter(s => s.name.startsWith(query));
+  // Merge builtins + skills into a unified autocomplete list
+  type ACItem = { name: string; description: string; builtin?: boolean };
+  const allItems: ACItem[] = [
+    ...BUILTIN_COMMANDS.map(c => ({ ...c, builtin: true })),
+    ...skills.map(s => ({ ...s, builtin: false })),
+  ];
+  const filtered: ACItem[] = query === ''
+    ? allItems
+    : allItems.filter(item => item.name.startsWith(query));
 
   const closeAC = () => { setShowAC(false); setAcIndex(0); };
 
-  const applySkill = (skill: Skill) => {
+  const applyItem = (item: { name: string; builtin?: boolean }) => {
     if (!ref.current) return;
-    // Replace everything from the leading / through the current query
     const val = ref.current.value;
     const slashIdx = val.lastIndexOf('/');
     if (slashIdx !== -1) {
-      ref.current.value = val.slice(0, slashIdx) + '/' + skill.name + ' ';
+      // For builtins, fill and immediately submit on Enter; for skills, fill with trailing space to allow args
+      ref.current.value = val.slice(0, slashIdx) + '/' + item.name + (item.builtin ? '' : ' ');
     }
     closeAC();
     ref.current.focus();
@@ -75,7 +89,7 @@ export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir 
       }
       if (e.key === 'Tab' || e.key === 'Enter' && showAC) {
         e.preventDefault();
-        applySkill(filtered[acIndex]);
+        applyItem(filtered[acIndex]);
         return;
       }
       if (e.key === 'Escape') {
@@ -89,7 +103,13 @@ export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir 
       e.preventDefault();
       const text = ref.current?.value.trim();
       if (text) {
-        onSend(text);
+        // Check if it's a builtin command
+        const builtinMatch = BUILTIN_COMMANDS.find(c => text === `/${c.name}`);
+        if (builtinMatch) {
+          onCommand(builtinMatch.name);
+        } else {
+          onSend(text);
+        }
         if (ref.current) ref.current.value = '';
         closeAC();
         autoResize();
@@ -136,10 +156,10 @@ export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir 
             overflowY: 'auto',
           }}
         >
-          {filtered.map((skill, i) => (
+          {filtered.map((item, i) => (
             <div
-              key={skill.name}
-              onMouseDown={(e) => { e.preventDefault(); applySkill(skill); }}
+              key={item.name}
+              onMouseDown={(e) => { e.preventDefault(); applyItem(item); }}
               style={{
                 padding: '6px 10px',
                 background: i === acIndex ? 'var(--bg-active)' : 'transparent',
@@ -156,9 +176,9 @@ export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir 
                 color: i === acIndex ? 'var(--accent)' : 'var(--text-primary)',
                 flexShrink: 0,
               }}>
-                /{skill.name}
+                /{item.name}
               </span>
-              {skill.description && (
+              {item.description && (
                 <span style={{
                   fontFamily: 'var(--font-mono)',
                   fontSize: 10,
@@ -166,8 +186,19 @@ export function SessionInput({ onSend, onAbort, streaming, disabled, workingDir 
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
+                  flex: 1,
                 }}>
-                  {skill.description}
+                  {item.description}
+                </span>
+              )}
+              {item.builtin && (
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 9,
+                  color: 'var(--text-disabled)',
+                  flexShrink: 0,
+                }}>
+                  built-in
                 </span>
               )}
             </div>

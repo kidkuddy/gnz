@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useGalactaStore, type GalactaSession, type ExternalSession } from '../stores/galacta-store';
+import { CLAUDE_MODELS } from './ChatView';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useTabStore } from '../../../stores/tab-store';
 import { parseWorkspaceSettings } from '../../../lib/tauri-ipc';
@@ -24,6 +25,9 @@ export function GalactaPanel() {
   const [externalSessions, setExternalSessions] = useState<ExternalSession[]>([]);
   const [discovering, setDiscovering] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
+  const [newSessionModel, setNewSessionModel] = useState<string>(
+    () => localStorage.getItem('galacta:defaultModel') ?? 'claude-sonnet-4-6'
+  );
 
   // Check status on mount + poll every 10s
   useEffect(() => {
@@ -52,7 +56,7 @@ export function GalactaPanel() {
 
   const handleNewSession = async () => {
     if (!activeWorkspace) return;
-    const session = await createSession(activeWorkspace.id, workingDir(), undefined, 'bypassPermissions');
+    const session = await createSession(activeWorkspace.id, workingDir(), newSessionModel, 'bypassPermissions');
     if (session) {
       openSessionTab(session);
     }
@@ -108,14 +112,14 @@ export function GalactaPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header */}
+      {/* Header row: Galacta label + new session button */}
       <div
         style={{
           padding: '8px 12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid var(--border-subtle)',
+          borderBottom: galactaStatus === 'online' ? 'none' : '1px solid var(--border-subtle)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -132,66 +136,108 @@ export function GalactaPanel() {
         </div>
 
         {galactaStatus === 'online' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button
-              onClick={() => {
-                addTab({
-                  id: 'galacta-logs',
-                  title: 'Galacta Logs',
-                  type: 'galacta-logs',
-                  moduleId: 'galacta',
-                });
-              }}
-              title="View galacta daemon logs"
-              style={{
-                background: 'none',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '2px 6px',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-              }}
-            >
-              logs
-            </button>
-            <button
-              onClick={handleToggleDiscover}
-              title="Discover existing sessions"
-              style={{
-                background: discoverOpen ? 'var(--bg-active)' : 'none',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '2px 6px',
-                color: discoverOpen ? 'var(--accent)' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-              }}
-            >
-              discover
-            </button>
-            <button
-              onClick={handleNewSession}
-              title="New session"
-              style={{
-                background: 'none',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '2px 6px',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 12,
-                lineHeight: 1,
-              }}
-            >
-              +
-            </button>
-          </div>
+          <button
+            onClick={handleNewSession}
+            title="New session"
+            style={{
+              background: 'none',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px 8px',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              lineHeight: 1,
+            }}
+          >
+            +
+          </button>
         )}
       </div>
+
+      {/* Sub-toolbar: model, discover, logs */}
+      {galactaStatus === 'online' && (
+        <div
+          style={{
+            padding: '4px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            borderBottom: '1px solid var(--border-subtle)',
+          }}
+        >
+          {/* Model picker for new sessions */}
+          <select
+            value={newSessionModel}
+            onChange={(e) => {
+              setNewSessionModel(e.target.value);
+              localStorage.setItem('galacta:defaultModel', e.target.value);
+            }}
+            title="Model for new sessions"
+            style={{
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              padding: '2px 3px',
+              cursor: 'pointer',
+              outline: 'none',
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {CLAUDE_MODELS.map(m => (
+              <option key={m} value={m}>{m.replace('claude-', '')}</option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleToggleDiscover}
+            title="Discover existing sessions"
+            style={{
+              background: discoverOpen ? 'var(--bg-active)' : 'none',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px 6px',
+              color: discoverOpen ? 'var(--accent)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              flexShrink: 0,
+            }}
+          >
+            discover
+          </button>
+
+          <button
+            onClick={() => {
+              addTab({
+                id: 'galacta-logs',
+                title: 'Galacta Logs',
+                type: 'galacta-logs',
+                moduleId: 'galacta',
+              });
+            }}
+            title="View galacta daemon logs"
+            style={{
+              background: 'none',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px 6px',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              flexShrink: 0,
+            }}
+          >
+            logs
+          </button>
+        </div>
+      )}
 
       {/* Offline / launching state */}
       {galactaStatus === 'offline' && (

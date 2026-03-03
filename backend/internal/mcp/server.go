@@ -10,6 +10,8 @@ import (
 
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/actions"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/database"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/galacta"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/kanban"
 	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
 
@@ -18,7 +20,7 @@ type MCPServer struct {
 	sseServer *server.SSEServer
 }
 
-func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *database.ConnectionStore, actionsStore *actions.Store, actionsMgr *actions.Manager) (*MCPServer, error) {
+func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *database.ConnectionStore, actionsStore *actions.Store, actionsMgr *actions.Manager, kanbanStore *kanban.Store, galactaSvc *galacta.Service, galactaStore *galacta.Store) (*MCPServer, error) {
 	srv := server.NewMCPServer(
 		"gnz-devtools",
 		"1.0.0",
@@ -43,6 +45,9 @@ func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *databa
 
 	// Register actions module MCP tools
 	actions.RegisterMCPTools(srv, actionsStore, actionsMgr)
+
+	// Register kanban module MCP tools
+	kanban.RegisterMCPTools(srv, kanbanStore, galactaSvc, galactaStore, wsSvc)
 
 	sseServer := server.NewSSEServer(srv,
 		server.WithBasePath("/mcp"),
