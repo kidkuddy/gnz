@@ -62,6 +62,19 @@ gnz/
 | Logs | planned | Streaming log viewer with filtering |
 | Terminals | planned | Managed terminal sessions |
 
+## Data Storage
+
+Workspace metadata and app state are stored in a SQLite database. Default locations by platform:
+
+| Platform | Default path |
+|----------|-------------|
+| macOS | `~/Library/Application Support/com.gnz.app/gnz.db` |
+| Linux | `$XDG_DATA_HOME/com.gnz.app/gnz.db` (falls back to `~/.local/share/com.gnz.app/gnz.db`) |
+| Windows | `%APPDATA%\com.gnz.app\gnz.db` |
+| Other | `~/.gnz/gnz.db` |
+
+Override the location by setting the `GNZ_DATA_DIR` environment variable.
+
 ## MCP Tools
 
 Every module exposes MCP tools. Current:
