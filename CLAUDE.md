@@ -39,7 +39,12 @@ Always use `--release` for all cargo commands:
 - Module: `github.com/clusterlab-ai/gnz/backend`
 - Entry: `backend/cmd/gnz-backend/main.go`
 - The binary receives `--port PORT` and prints `READY` to stdout when listening
-- App state SQLite: `~/Library/Application Support/com.gnz.app/gnz.db`
+- App state SQLite (default paths by platform):
+  - **macOS**: `~/Library/Application Support/com.gnz.app/gnz.db`
+  - **Linux**: `$XDG_DATA_HOME/com.gnz.app/gnz.db` (falls back to `~/.local/share/com.gnz.app/gnz.db`)
+  - **Windows**: `%APPDATA%\com.gnz.app\gnz.db`
+  - **Other**: `~/.gnz/gnz.db`
+  - Override with the `GNZ_DATA_DIR` environment variable
 - Migrations: `backend/internal/appdb/migrations/` (embedded via `embed.FS`)
 
 ### Key packages
