@@ -20,7 +20,7 @@ endif
 
 SIDECAR_NAME := gnz-backend-$(TARGET_TRIPLE)
 
-.PHONY: all dev build clean backend ui tauri setup
+.PHONY: all dev build install clean backend ui tauri setup
 
 all: build
 
@@ -46,6 +46,10 @@ ui:
 # Build everything and package with Tauri
 build: backend ui
 	pnpm tauri build
+
+# Build and open DMG for installation
+install: build
+	@open desktop/target/release/bundle/dmg/*.dmg
 
 # Development mode
 dev: backend

@@ -69,8 +69,8 @@ export function WorkspaceSelectorView() {
           setNewName(parts[parts.length - 1] || '');
         }
       }
-    } catch {
-      // User cancelled
+    } catch (err) {
+      console.error('Folder dialog error:', err);
     }
   };
 

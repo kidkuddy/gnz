@@ -121,8 +121,8 @@ export function TitleBar() {
           setNewName(parts[parts.length - 1] || '');
         }
       }
-    } catch {
-      // cancelled
+    } catch (err) {
+      console.error('Folder dialog error:', err);
     }
   };
 

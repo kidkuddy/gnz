@@ -3,6 +3,7 @@ import { StickyNote } from 'lucide-react';
 import { tabRegistry } from '../../stores/tab-registry';
 import { ScratchpadPanel } from './components/ScratchpadPanel';
 import { ScratchpadView } from './views/ScratchpadView';
+import { MarkdownFileView } from './views/MarkdownFileView';
 import { useWorkspaceStore } from '../../stores/workspace-store';
 import { useScratchpadStore } from './stores/scratchpad-store';
 
@@ -23,6 +24,10 @@ export function registerScratchpadModule() {
           if (!wsId) return;
           useScratchpadStore.getState().renamePad(wsId, padId, title).catch(() => {});
         },
+      },
+      {
+        type: 'markdown-file',
+        renderContent: (tab) => React.createElement(MarkdownFileView, { tab }),
       },
     ],
   });

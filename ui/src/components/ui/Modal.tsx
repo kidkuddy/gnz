@@ -65,7 +65,7 @@ export function Modal({ open, onOpenChange, title, description, children }: Moda
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay style={overlayStyle} />
-        <Dialog.Content style={contentStyle}>
+        <Dialog.Content style={contentStyle} onFocusOutside={(e) => e.preventDefault()}>
           <Dialog.Title style={titleStyle}>{title}</Dialog.Title>
           {description && (
             <Dialog.Description style={descriptionStyle}>{description}</Dialog.Description>

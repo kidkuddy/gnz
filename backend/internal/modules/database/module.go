@@ -3,10 +3,12 @@ package database
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mark3labs/mcp-go/server"
+
+	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
 
-func Register(r chi.Router, pool *PoolManager, store *ConnectionStore) {
-	h := NewHandler(pool, store)
+func Register(r chi.Router, pool *PoolManager, store *ConnectionStore, wsSvc *workspace.Service) {
+	h := NewHandler(pool, store, wsSvc)
 
 	r.Route("/workspaces/{ws}", func(r chi.Router) {
 		r.Post("/connections", h.CreateConnection)
@@ -20,6 +22,6 @@ func Register(r chi.Router, pool *PoolManager, store *ConnectionStore) {
 	})
 }
 
-func RegisterMCPTools(srv *server.MCPServer, pool *PoolManager, store *ConnectionStore) {
-	registerMCPTools(srv, pool, store)
+func RegisterMCPTools(srv *server.MCPServer, pool *PoolManager, store *ConnectionStore, wsSvc *workspace.Service) {
+	registerMCPTools(srv, pool, store, wsSvc)
 }

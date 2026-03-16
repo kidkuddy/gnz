@@ -30,6 +30,18 @@ export function ChatView({ session, readOnly = false }: ChatViewProps) {
   const rateLimits = useGalactaStore(s => s.rateLimits);
   const sessionUsage = useGalactaStore(s => s.sessionUsage[session.id]) ?? null;
   const loadRateLimits = useGalactaStore(s => s.loadRateLimits);
+
+  // Last per-turn usage event — reflects actual current context window size,
+  // resets correctly after compact (unlike cumulative sessionUsage totals).
+  const lastTurnUsage = (() => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      const events = turns[i].events;
+      for (let j = events.length - 1; j >= 0; j--) {
+        if (events[j].kind === 'usage') return events[j] as Extract<TurnEvent, { kind: 'usage' }>;
+      }
+    }
+    return null;
+  })();
   const galactaStatus = useGalactaStore(s => s.galactaStatus);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,6 +79,7 @@ export function ChatView({ session, readOnly = false }: ChatViewProps) {
         onCloseSkills={() => setSkillsOpen(false)}
         rateLimits={rateLimits}
         sessionUsage={sessionUsage}
+        lastTurnUsage={lastTurnUsage}
         onModeChange={(mode) => updateSessionMode(session.id, mode)}
         onModelChange={(model) => {
           if (activeWorkspaceId) updateSessionModel(activeWorkspaceId, session.id, model);
@@ -145,6 +158,7 @@ function TopBar({
   onCloseSkills,
   rateLimits,
   sessionUsage,
+  lastTurnUsage,
   onModeChange,
   onModelChange,
 }: {
@@ -154,6 +168,7 @@ function TopBar({
   onCloseSkills: () => void;
   rateLimits: { type: string; utilization: number; resets_at?: number }[];
   sessionUsage: SessionUsage | null;
+  lastTurnUsage: Extract<TurnEvent, { kind: 'usage' }> | null;
   onModeChange: (mode: PermissionMode) => void;
   onModelChange: (model: string) => void;
 }) {
@@ -228,7 +243,7 @@ function TopBar({
       <div style={{ flex: 1 }} />
 
       {/* Context window utilization */}
-      {sessionUsage && <ContextBar usage={sessionUsage} />}
+      {lastTurnUsage && <ContextBar lastTurnUsage={lastTurnUsage} />}
 
       {/* Rate limits */}
       {rateLimits.length > 0 && (
@@ -278,18 +293,20 @@ function TopBar({
 // 200k context - 20k max_output_reserve - 13k compact_buffer = 167k
 const CONTEXT_THRESHOLD = 167_000;
 
-function ContextBar({ usage }: { usage: SessionUsage }) {
-  const totalTokens = usage.total_input_tokens + usage.total_output_tokens;
-  const utilization = Math.min(totalTokens / CONTEXT_THRESHOLD, 1);
+function ContextBar({ lastTurnUsage }: { lastTurnUsage: Extract<TurnEvent, { kind: 'usage' }> }) {
+  // input_tokens + cache_read_tokens = tokens actually occupying the context window
+  // for the most recent request. Resets correctly after compact.
+  const contextTokens = lastTurnUsage.input_tokens + lastTurnUsage.cache_read_tokens;
+  const utilization = Math.min(contextTokens / CONTEXT_THRESHOLD, 1);
   const pct = Math.round(utilization * 100);
   const color = utilization > 0.85 ? '#c44' : utilization > 0.6 ? '#d4a017' : '#2dd4bf';
 
-  if (totalTokens === 0) return null;
+  if (contextTokens === 0) return null;
 
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', gap: 3 }}
-      title={`Context: ${totalTokens.toLocaleString()} / ${CONTEXT_THRESHOLD.toLocaleString()} tokens (auto-compact at threshold)`}
+      title={`Context: ${contextTokens.toLocaleString()} / ${CONTEXT_THRESHOLD.toLocaleString()} tokens (auto-compact at threshold)`}
     >
       <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>ctx</span>
       <div

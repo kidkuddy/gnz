@@ -41,7 +41,7 @@ func New(wsSvc *workspace.Service, pool *database.PoolManager, connStore *databa
 	})
 
 	// Register database module MCP tools
-	database.RegisterMCPTools(srv, pool, connStore)
+	database.RegisterMCPTools(srv, pool, connStore, wsSvc)
 
 	// Register actions module MCP tools
 	actions.RegisterMCPTools(srv, actionsStore, actionsMgr)

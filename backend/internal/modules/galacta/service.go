@@ -19,6 +19,7 @@ import (
 
 const DefaultPort = 9090
 const logFilePath = "/tmp/galacta.log"
+const mcpConfigPath = "/tmp/galacta-mcp.json"
 
 type Status struct {
 	Running bool   `json:"running"`
@@ -35,13 +36,14 @@ type HealthResponse struct {
 type Service struct {
 	mu      sync.Mutex
 	port    int
+	gnzPort int // port gnz itself is listening on, used to build MCP config
 	proc    *exec.Cmd
 	cancel  context.CancelFunc
 	running bool
 }
 
-func NewService() *Service {
-	return &Service{port: DefaultPort}
+func NewService(gnzPort int) *Service {
+	return &Service{port: DefaultPort, gnzPort: gnzPort}
 }
 
 // Check probes Galacta's /health endpoint and returns current status.
@@ -82,8 +84,20 @@ func (s *Service) Launch() error {
 		return fmt.Errorf("opening galacta log file: %w", err)
 	}
 
+	// Write MCP config pointing at gnz's own MCP endpoint so Galacta agents
+	// get access to gnz tools (database, kanban, actions, etc.).
+	args := []string{"serve"}
+	if s.gnzPort > 0 {
+		if err := writeMCPConfig(s.gnzPort); err != nil {
+			slog.Warn("galacta: failed to write MCP config (agents won't have gnz tools)", "error", err)
+		} else {
+			slog.Info("galacta: MCP config written", "path", mcpConfigPath, "gnz_port", s.gnzPort)
+			args = append(args, "--mcp-config", mcpConfigPath)
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, bin, "serve")
+	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Env = os.Environ()
 
 	stdout, err := cmd.StdoutPipe()
@@ -176,6 +190,13 @@ func httpGet(url string, timeout time.Duration) (*http.Response, error) {
 	return client.Do(req)
 }
 
+// writeMCPConfig writes a Galacta MCP config file that points to the gnz backend's
+// SSE MCP endpoint, so Galacta sessions have access to gnz tools.
+func writeMCPConfig(gnzPort int) error {
+	cfg := fmt.Sprintf(`{"mcpServers":{"gnz":{"type":"sse","url":"http://127.0.0.1:%d/mcp/sse"}}}`, gnzPort)
+	return os.WriteFile(mcpConfigPath, []byte(cfg), 0644)
+}
+
 // readLogTail returns the last N lines from the given file path.
 // Returns an empty slice (no error) if the file doesn't exist yet.
 func readLogTail(path string, n int) ([]string, error) {
@@ -263,27 +284,34 @@ func (s *Service) CreateSession(store *Store, req CreateSessionRequest) (*Create
 		slog.Error("failed to persist galacta session from kanban", "error", err)
 	}
 
-	// 3. Optionally send initial message (fire-and-forget, runs in background goroutine)
+	// 3. Optionally send initial message.
+	// We POST to /message and immediately close the response body — Galacta runs the agent
+	// independently. We must NOT drain the SSE stream: doing so holds an open connection
+	// that would block the user from interacting with the session later.
 	needsInput := true
 	if req.InitialMsg != "" {
 		msgPayload, _ := json.Marshal(map[string]string{"message": req.InitialMsg})
-		port := s.port
 		go func() {
-			// No timeout — SSE response can be arbitrarily long
-			streamClient := &http.Client{}
-			url := fmt.Sprintf("http://127.0.0.1:%d/sessions/%s/message", port, sessionID)
-			req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(msgPayload))
+			url := fmt.Sprintf("http://127.0.0.1:%d/sessions/%s/message", s.port, sessionID)
+			httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(msgPayload))
 			if err != nil {
 				slog.Warn("galacta message request build failed", "session_id", sessionID, "error", err)
 				return
 			}
-			req.Header.Set("Content-Type", "application/json")
-			msgResp, msgErr := streamClient.Do(req)
+			httpReq.Header.Set("Content-Type", "application/json")
+			httpReq.Header.Set("Connection", "close")
+			// Use a client with no timeout — we only read the first few bytes then close.
+			client := &http.Client{}
+			msgResp, msgErr := client.Do(httpReq)
 			if msgErr != nil {
 				slog.Warn("galacta initial message failed (non-fatal)", "session_id", sessionID, "error", msgErr)
 				return
 			}
-			io.Copy(io.Discard, msgResp.Body)
+			// Read the first chunk (enough to confirm the stream started) then disconnect.
+			// Galacta's agent continues running server-side — the SSE client connection
+			// is just an observer, not a controller. Closing it does not stop the agent.
+			buf := make([]byte, 256)
+			msgResp.Body.Read(buf) //nolint:errcheck
 			msgResp.Body.Close()
 		}()
 		needsInput = false

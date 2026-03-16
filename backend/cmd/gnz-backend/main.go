@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/galacta"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/git"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/kanban"
+	"github.com/clusterlab-ai/gnz/backend/internal/modules/product"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/scratchpad"
 	"github.com/clusterlab-ai/gnz/backend/internal/modules/terminal"
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
@@ -73,22 +75,28 @@ func main() {
 	// Register database module routes under /api/v1
 	if cfg.Features.DB {
 		srv.RegisterModuleRoutes(func(r chi.Router) {
-			database.Register(r, poolMgr, connStore)
+			database.Register(r, poolMgr, connStore, wsSvc)
 		})
 	}
 
 	// Initialize and auto-launch Galacta
 	var galactaSvc *galacta.Service
 	if cfg.Features.Galacta {
-		galactaSvc = galacta.NewService()
+		galactaSvc = galacta.NewService(cfg.Port)
 
-		// Auto-launch Galacta in background if not already running
+		// Auto-launch Galacta in background.
+		// If it's already running (e.g. leftover from a previous gnz instance), kill it
+		// and restart so it picks up the updated MCP config pointing at this gnz port.
 		go func() {
 			status := galactaSvc.Check()
-			if !status.Running {
-				if err := galactaSvc.Launch(); err != nil {
-					slog.Error("galacta auto-launch failed", "error", err)
-				}
+			if status.Running {
+				slog.Info("galacta already running, restarting to apply MCP config")
+				killGalacta()
+				// Brief pause to let it shut down before we relaunch
+				time.Sleep(500 * time.Millisecond)
+			}
+			if err := galactaSvc.Launch(); err != nil {
+				slog.Error("galacta auto-launch failed", "error", err)
 			}
 		}()
 
@@ -128,6 +136,11 @@ func main() {
 
 	srv.RegisterModuleRoutes(func(r chi.Router) {
 		actions.Register(r, actionsStore, actionsMgr)
+	})
+
+	// Register product module routes
+	srv.RegisterModuleRoutes(func(r chi.Router) {
+		product.Register(r, wsSvc)
 	})
 
 	// Initialize kanban module
@@ -183,4 +196,9 @@ func main() {
 	}
 
 	log.Println("server stopped")
+}
+
+// killGalacta sends SIGTERM to any running galacta process.
+func killGalacta() {
+	_ = exec.Command("pkill", "-x", "galacta").Run()
 }

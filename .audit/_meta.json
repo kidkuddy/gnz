@@ -1,0 +1,16 @@
+{
+  "project_name": "gnz",
+  "audit_date": "2026-03-06",
+  "mode": "standard",
+  "focus_areas": ["architecture", "security", "mcp-coverage", "module-abstraction"],
+  "scopes_found": ["backend", "desktop", "ui"],
+  "finding_counts": {
+    "critical": 3,
+    "high": 5,
+    "medium": 14,
+    "low": 12,
+    "info": 0
+  },
+  "risk_score": 5,
+  "verdict": "keep+refactor"
+}

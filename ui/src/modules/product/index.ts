@@ -1,0 +1,1 @@
+export { registerProductModule } from './register';

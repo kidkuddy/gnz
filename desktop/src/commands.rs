@@ -132,10 +132,17 @@ pub async fn proxy_delete(
         .map_err(|e| format!("request failed: {}", e))?;
 
     let status = resp.status();
-    let body = resp
-        .json::<Value>()
+    let text = resp
+        .text()
         .await
-        .map_err(|e| format!("failed to parse response: {}", e))?;
+        .map_err(|e| format!("failed to read response: {}", e))?;
+
+    let body: Value = if text.trim().is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_str(&text)
+            .map_err(|e| format!("failed to parse response: {}", e))?
+    };
 
     if !status.is_success() {
         return Err(format!("backend returned {}: {}", status, body));

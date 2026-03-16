@@ -3,20 +3,49 @@ package database
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/clusterlab-ai/gnz/backend/internal/server"
+	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
 
 type Handler struct {
 	pool  *PoolManager
 	store *ConnectionStore
+	wsSvc *workspace.Service
 }
 
-func NewHandler(pool *PoolManager, store *ConnectionStore) *Handler {
-	return &Handler{pool: pool, store: store}
+func NewHandler(pool *PoolManager, store *ConnectionStore, wsSvc *workspace.Service) *Handler {
+	return &Handler{pool: pool, store: store, wsSvc: wsSvc}
+}
+
+// resolveDSN resolves relative SQLite DSNs against the workspace working directory.
+func (h *Handler) resolveDSN(conn *Connection, wsID string) string {
+	return ResolveSQLiteDSN(conn, h.wsSvc, wsID)
+}
+
+// ResolveSQLiteDSN resolves relative SQLite DSNs against the workspace working directory.
+func ResolveSQLiteDSN(conn *Connection, wsSvc *workspace.Service, wsID string) string {
+	if conn.Driver != "sqlite" && conn.Driver != "sqlite3" {
+		return conn.DSN
+	}
+	if filepath.IsAbs(conn.DSN) {
+		return conn.DSN
+	}
+	ws, err := wsSvc.GetByID(wsID)
+	if err != nil || ws == nil {
+		return conn.DSN
+	}
+	var settings struct {
+		WorkingDirectory string `json:"working_directory"`
+	}
+	if err := json.Unmarshal([]byte(ws.Settings), &settings); err != nil || settings.WorkingDirectory == "" {
+		return conn.DSN
+	}
+	return filepath.Join(settings.WorkingDirectory, conn.DSN)
 }
 
 func (h *Handler) CreateConnection(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +112,7 @@ func (h *Handler) DeleteConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) TestConnection(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
 	connID := chi.URLParam(r, "id")
 
 	conn, err := h.store.GetByID(connID)
@@ -95,7 +125,9 @@ func (h *Handler) TestConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := h.pool.GetOrCreate(*conn)
+	resolved := *conn
+	resolved.DSN = h.resolveDSN(conn, wsID)
+	db, err := h.pool.GetOrCreate(resolved)
 	if err != nil {
 		server.Error(w, http.StatusServiceUnavailable, "connection failed: "+err.Error())
 		return
@@ -110,6 +142,7 @@ func (h *Handler) TestConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListTables(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
 	connID := chi.URLParam(r, "conn")
 
 	conn, err := h.store.GetByID(connID)
@@ -122,7 +155,9 @@ func (h *Handler) ListTables(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := h.pool.GetOrCreate(*conn)
+	resolved := *conn
+	resolved.DSN = h.resolveDSN(conn, wsID)
+	db, err := h.pool.GetOrCreate(resolved)
 	if err != nil {
 		server.InternalError(w, err.Error())
 		return
@@ -140,6 +175,7 @@ func (h *Handler) ListTables(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetTableRows(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
 	connID := chi.URLParam(r, "conn")
 	tableName := chi.URLParam(r, "name")
 
@@ -162,7 +198,9 @@ func (h *Handler) GetTableRows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := h.pool.GetOrCreate(*conn)
+	resolved := *conn
+	resolved.DSN = h.resolveDSN(conn, wsID)
+	db, err := h.pool.GetOrCreate(resolved)
 	if err != nil {
 		server.InternalError(w, err.Error())
 		return
@@ -190,6 +228,7 @@ func (h *Handler) GetTableRows(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ExecuteQuery(w http.ResponseWriter, r *http.Request) {
+	wsID := chi.URLParam(r, "ws")
 	connID := chi.URLParam(r, "conn")
 
 	var body struct {
@@ -214,7 +253,9 @@ func (h *Handler) ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := h.pool.GetOrCreate(*conn)
+	resolved := *conn
+	resolved.DSN = h.resolveDSN(conn, wsID)
+	db, err := h.pool.GetOrCreate(resolved)
 	if err != nil {
 		server.InternalError(w, err.Error())
 		return

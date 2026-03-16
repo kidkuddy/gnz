@@ -106,11 +106,29 @@ export interface FileContent {
   size: number;
 }
 
+export interface TreeEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size?: number;
+  children?: TreeEntry[];
+}
+
 export const filesApi = {
   search: (ws: string, query: string) =>
     apiGet<FileEntry[]>(`workspaces/${ws}/files/search?q=${encodeURIComponent(query)}`),
+  tree: (ws: string) =>
+    apiGet<TreeEntry[]>(`workspaces/${ws}/files/tree`),
   read: (ws: string, path: string) =>
     apiGet<FileContent>(`workspaces/${ws}/files/read?path=${encodeURIComponent(path)}`),
+  create: (ws: string, path: string) =>
+    apiPost<{ path: string }>(`workspaces/${ws}/files/create`, { path }),
+  move: (ws: string, from: string, to: string) =>
+    apiPost<{ from: string; to: string }>(`workspaces/${ws}/files/move`, { from, to }),
+  rename: (ws: string, path: string, newName: string) =>
+    apiPost<{ path: string }>(`workspaces/${ws}/files/rename`, { path, new_name: newName }),
+  delete: (ws: string, path: string) =>
+    apiPost<{ path: string }>(`workspaces/${ws}/files/delete`, { path }),
 };
 
 // Git API
@@ -468,3 +486,95 @@ export interface AppConfig {
     galacta: boolean;
   };
 }
+
+// Product module types
+export interface ProductGoal {
+  slug: string;
+  description: string;
+  done: boolean;
+}
+
+export interface ProductTechRow {
+  layer: string;
+  technology: string;
+}
+
+export interface ProductScope {
+  name: string;
+  path: string;
+  type: string;
+  state: string;
+}
+
+export interface ProductFeature {
+  name: string;
+  state: string;
+  why: string;
+  acceptance: string[];
+  depends_on: string[];
+  files: string[];
+  notes: string;
+  issues: string[];
+}
+
+export interface ProductDomain {
+  name: string;
+  summary: string;
+  files: string[];
+  features: ProductFeature[];
+}
+
+export interface ProductData {
+  schema: string;
+  name: string;
+  description: string;
+  version: string;
+  last_updated: string;
+  vision: string;
+  goals: ProductGoal[];
+  tech_stack: ProductTechRow[];
+  architecture: string;
+  scopes: ProductScope[];
+  domains: ProductDomain[];
+  open_questions: string[];
+  references: string[];
+}
+
+export interface ProductIssue {
+  id: string;
+  title: string;
+  type: string;
+  severity: string;
+  status: string;
+  domain: string;
+  feature: string;
+  body: string;
+  fix: string;
+}
+
+export const productApi = {
+  get: (ws: string) => apiGet<ProductData>(`workspaces/${ws}/product`),
+  init: (ws: string, name: string, description: string) =>
+    apiPost<ProductData>(`workspaces/${ws}/product/init`, { name, description }),
+  save: (ws: string, data: Partial<ProductData>) =>
+    apiPut<ProductData>(`workspaces/${ws}/product`, data),
+
+  listIssues: (ws: string) => apiGet<ProductIssue[]>(`workspaces/${ws}/product/issues`),
+  createIssue: (ws: string, data: Partial<ProductIssue>) =>
+    apiPost<ProductIssue>(`workspaces/${ws}/product/issues`, data),
+  updateIssue: (ws: string, id: string, data: Partial<ProductIssue>) =>
+    apiPut<ProductIssue>(`workspaces/${ws}/product/issues/${id}`, data),
+  deleteIssue: (ws: string, id: string) =>
+    apiDelete(`workspaces/${ws}/product/issues/${id}`),
+
+  createFeature: (ws: string, domain: string, data: Partial<ProductFeature>) =>
+    apiPost<ProductFeature>(
+      `workspaces/${ws}/product/domains/${encodeURIComponent(domain)}/features`,
+      data
+    ),
+  updateFeature: (ws: string, domain: string, feature: string, data: Partial<ProductFeature>) =>
+    apiPut<ProductFeature>(
+      `workspaces/${ws}/product/domains/${encodeURIComponent(domain)}/features/${encodeURIComponent(feature)}`,
+      data
+    ),
+};

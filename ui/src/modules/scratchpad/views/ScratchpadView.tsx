@@ -1,4 +1,7 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Eye, Pencil } from 'lucide-react';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import type { Tab } from '../../../stores/tab-store';
@@ -14,6 +17,8 @@ export function ScratchpadView({ tab }: Props) {
   const loadPadContent = useScratchpadStore((s) => s.loadPadContent);
   const savePad = useScratchpadStore((s) => s.savePad);
   const setPadContent = useScratchpadStore((s) => s.setPadContent);
+
+  const [viewMode, setViewMode] = React.useState(false);
 
   const padState = padId ? padStates[padId] : undefined;
   const content = padState?.content ?? '';
@@ -77,16 +82,31 @@ export function ScratchpadView({ tab }: Props) {
           <span style={titleStyle}>{tab.title}</span>
           {dirty && <span style={dirtyDotStyle} title="Unsaved changes" />}
         </div>
-        {saving && <span style={savingStyle}>Saving...</span>}
-        {!saving && !dirty && <span style={savedStyle}>Saved</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {saving && <span style={savingStyle}>Saving...</span>}
+          {!saving && !dirty && <span style={savedStyle}>Saved</span>}
+          <button
+            onClick={() => setViewMode((v) => !v)}
+            style={toggleBtnStyle}
+            title={viewMode ? 'Edit mode' : 'Preview mode'}
+          >
+            {viewMode ? <Pencil size={13} /> : <Eye size={13} />}
+          </button>
+        </div>
       </div>
-      <textarea
-        value={content}
-        onChange={handleChange}
-        placeholder="Notes, todos, anything... (Cmd+S to save)"
-        style={textareaStyle}
-        spellCheck={false}
-      />
+      {viewMode ? (
+        <div style={previewStyle} className="md-body">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        </div>
+      ) : (
+        <textarea
+          value={content}
+          onChange={handleChange}
+          placeholder="Notes, todos, anything... (Cmd+S to save)"
+          style={textareaStyle}
+          spellCheck={false}
+        />
+      )}
     </div>
   );
 }
@@ -133,6 +153,27 @@ const savedStyle: React.CSSProperties = {
   fontSize: '10px',
   color: 'var(--text-disabled)',
   fontFamily: 'var(--font-mono)',
+};
+
+const toggleBtnStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--text-tertiary)',
+  padding: '2px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '4px',
+  transition: 'color 0.15s',
+};
+
+const previewStyle: React.CSSProperties = {
+  flex: 1,
+  overflow: 'auto',
+  padding: 'var(--space-3)',
+  fontSize: '13px',
+  lineHeight: '1.6',
 };
 
 const textareaStyle: React.CSSProperties = {

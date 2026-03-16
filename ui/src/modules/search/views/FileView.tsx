@@ -1,4 +1,7 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Eye, Code } from 'lucide-react';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { useTabStore } from '../../../stores/tab-store';
 import { filesApi, type FileContent } from '../../../lib/tauri-ipc';
@@ -71,10 +74,13 @@ export function FileView() {
   const [file, setFile] = React.useState<FileContent | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState(false);
 
   const filePath = activeTab?.data?.filePath as string | undefined;
+  const isMarkdown = filePath?.endsWith('.md') ?? false;
 
   React.useEffect(() => {
+    setPreview(filePath?.endsWith('.md') ?? false);
     if (!activeWorkspace || !filePath) return;
     setLoading(true);
     setError(null);
@@ -120,16 +126,52 @@ export function FileView() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <span style={pathStyle}>{file.path}</span>
+        {isMarkdown && (
+          <button
+            onClick={() => setPreview((v) => !v)}
+            style={toggleBtnStyle}
+            title={preview ? 'Show source' : 'Preview markdown'}
+          >
+            {preview ? <Code size={13} /> : <Eye size={13} />}
+          </button>
+        )}
         <span style={sizeStyle}>{formatSize(file.size)}</span>
       </div>
-      <div style={contentAreaStyle}>
-        <div style={lineNumbersStyle}>
-          {lines.map((_, i) => (
-            <div key={i}>{i + 1}</div>
-          ))}
+      {preview && isMarkdown ? (
+        <div style={previewStyle} className="md-body">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{file.content}</ReactMarkdown>
         </div>
-        <pre style={codeStyle}>{file.content}</pre>
-      </div>
+      ) : (
+        <div style={contentAreaStyle}>
+          <div style={lineNumbersStyle}>
+            {lines.map((_, i) => (
+              <div key={i}>{i + 1}</div>
+            ))}
+          </div>
+          <pre style={codeStyle}>{file.content}</pre>
+        </div>
+      )}
     </div>
   );
 }
+
+const toggleBtnStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--text-tertiary)',
+  padding: '2px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '4px',
+  transition: 'color 0.15s',
+};
+
+const previewStyle: React.CSSProperties = {
+  flex: 1,
+  overflow: 'auto',
+  padding: 'var(--space-3) var(--space-4)',
+  fontSize: '13px',
+  lineHeight: '1.6',
+};

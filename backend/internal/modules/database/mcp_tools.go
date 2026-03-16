@@ -7,9 +7,11 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	"github.com/clusterlab-ai/gnz/backend/internal/workspace"
 )
 
-func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *ConnectionStore) {
+func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *ConnectionStore, wsSvc *workspace.Service) {
 	// devtools_list_workspaces
 	// Note: This tool needs access to workspace store, but we register it here
 	// with a placeholder. The actual workspace listing is wired in mcp/server.go.
@@ -43,6 +45,7 @@ func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *Connectio
 		mcp.WithString("output_format", mcp.Description("Output format: markdown or json (default: markdown)")),
 	)
 	srv.AddTool(sqlQueryTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		wsID, _ := req.Params.Arguments["workspace_id"].(string)
 		connID, _ := req.Params.Arguments["connection_id"].(string)
 		sqlStr, _ := req.Params.Arguments["sql"].(string)
 		outputFormat, _ := req.Params.Arguments["output_format"].(string)
@@ -59,7 +62,9 @@ func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *Connectio
 			return mcp.NewToolResultError("connection not found"), nil
 		}
 
-		db, err := pool.GetOrCreate(*conn)
+		resolved := *conn
+		resolved.DSN = ResolveSQLiteDSN(conn, wsSvc, wsID)
+		db, err := pool.GetOrCreate(resolved)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -86,6 +91,7 @@ func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *Connectio
 		mcp.WithString("connection_id", mcp.Required(), mcp.Description("Connection ID")),
 	)
 	srv.AddTool(listTablesTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		wsID, _ := req.Params.Arguments["workspace_id"].(string)
 		connID, _ := req.Params.Arguments["connection_id"].(string)
 
 		if connID == "" {
@@ -100,7 +106,9 @@ func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *Connectio
 			return mcp.NewToolResultError("connection not found"), nil
 		}
 
-		db, err := pool.GetOrCreate(*conn)
+		resolved := *conn
+		resolved.DSN = ResolveSQLiteDSN(conn, wsSvc, wsID)
+		db, err := pool.GetOrCreate(resolved)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -122,6 +130,7 @@ func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *Connectio
 		mcp.WithString("table_name", mcp.Required(), mcp.Description("Table name to describe")),
 	)
 	srv.AddTool(describeTableTool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		wsID, _ := req.Params.Arguments["workspace_id"].(string)
 		connID, _ := req.Params.Arguments["connection_id"].(string)
 		tableName, _ := req.Params.Arguments["table_name"].(string)
 
@@ -137,7 +146,9 @@ func registerMCPTools(srv *server.MCPServer, pool *PoolManager, store *Connectio
 			return mcp.NewToolResultError("connection not found"), nil
 		}
 
-		db, err := pool.GetOrCreate(*conn)
+		resolved := *conn
+		resolved.DSN = ResolveSQLiteDSN(conn, wsSvc, wsID)
+		db, err := pool.GetOrCreate(resolved)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
